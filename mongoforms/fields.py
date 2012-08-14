@@ -4,12 +4,11 @@ from django import forms
 from django.core import validators
 from django.core.exceptions import ValidationError
 from django.forms.formsets import formset_factory, BaseFormSet
-
 from django.utils.encoding import smart_unicode
 from bson.errors import InvalidId
 from bson.objectid import ObjectId
+from mongoengine import StringField, EmbeddedDocumentField
 
-from mongoengine import StringField
 
 class ReferenceField(forms.ChoiceField):
     """
@@ -61,6 +60,16 @@ class StringForm(forms.Form):
     def get_data(cls, cleaned_data):
         return [data['da_string'] for data in cleaned_data]
 
+class MixinEmbeddedForm:
+    @classmethod
+    def format_initial(cls, initial):
+        if initial:
+            return [d.__dict__['_data'] for d in initial]
+
+    @classmethod
+    def get_data(cls, cleaned_data):
+        return [cls.Meta.document(**data) for data in cleaned_data]
+
 class FormsetInput(forms.Widget):
 
     def __init__(self, form=None, name='', attrs=None):
@@ -83,7 +92,6 @@ class FormsetInput(forms.Widget):
           $('#id_'+str_id+'-TOTAL_FORMS').val(parseInt(num)+1);
 
           var html = $(src_form).html().replace(/__prefix__/g, ''+num);
-          console.log(html);
           $(html).insertBefore($(insertbefore));
           return false;
         }
@@ -110,7 +118,7 @@ class FormsetInput(forms.Widget):
 
 class FormsetField(forms.Field):
     widget = FormsetInput
-    def __init__(self, form=None, name=None, required=True, widget=None, label=None, initial=None):
+    def __init__(self, form=None, name=None, required=True, widget=None, label=None, initial=None, instance=None):
         self.widget = FormsetInput(form=form, name=name)
 
         super(FormsetField, self).__init__(required=required, label=label, initial=initial)
@@ -227,6 +235,19 @@ class MongoFormFieldGenerator(object):
         if isinstance(field.field, StringField):
             return FormsetField(
                 form=StringForm,
+                name=field_name,
+            )
+        elif isinstance(field.field, EmbeddedDocumentField):
+            # avoid circular dependencies
+            from forms import MongoFormMetaClass, MongoForm
+            return FormsetField(
+                form=MongoFormMetaClass(
+                    '%sForm'%field.field.document_type_obj.__name__,
+                    (MongoForm, MixinEmbeddedForm),
+                    {
+                        'Meta': type('Meta', tuple(), {'document': field.field.document_type_obj})
+                    }
+                ),
                 name=field_name,
             )
         else:
