@@ -114,7 +114,8 @@ class FormsetInput(forms.Widget):
         of this widget. Returns None if it's not provided.
         """
         self._instanciate_formset(data=data)
-        return self.form_cls.get_data(self.form.cleaned_data)
+        cleaned_data = [data for data in self.form.cleaned_data if not data.get('DELETE')]
+        return self.form_cls.get_data(cleaned_data)
 
 class FormsetField(forms.Field):
     widget = FormsetInput
