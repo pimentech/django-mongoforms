@@ -1,7 +1,15 @@
+# -*- coding:utf-8 -*-
+
 from django import forms
+from django.core import validators
+from django.core.exceptions import ValidationError
+from django.forms.formsets import formset_factory, BaseFormSet
+
 from django.utils.encoding import smart_unicode
 from bson.errors import InvalidId
 from bson.objectid import ObjectId
+
+from mongoengine import StringField
 
 class ReferenceField(forms.ChoiceField):
     """
@@ -41,11 +49,82 @@ class ReferenceField(forms.ChoiceField):
             raise forms.ValidationError(self.error_messages['invalid_choice'] % {'value':value})
         return obj
 
+class StringForm(forms.Form):
+    da_string = forms.CharField(required=True)
+
+    @classmethod
+    def format_initial(cls, initial):
+        if initial:
+            return [{'da_string': i} for i in initial]
+
+    @classmethod
+    def get_data(cls, cleaned_data):
+        return [data['da_string'] for data in cleaned_data]
+
+class FormsetInput(forms.Widget):
+
+    def __init__(self, form=None, name='', attrs=None):
+        super(FormsetInput, self).__init__(attrs=attrs)
+        self.form_cls = form
+        self.name = name
+        self.formset = formset_factory(self.form_cls, formset=BaseFormSet, extra=0, can_delete=True)
+
+    def _instanciate_formset(self, data=None, initial=None):
+        initial = self.form_cls.format_initial(initial)
+        self.form = self.formset(data, initial=initial, prefix=self.name)
+
+    def render(self, name, value, attrs=None):
+        self._instanciate_formset(initial=value)
+        management_javascript = """
+        <a href="#add_%s" id="add_%s">Add an entry</a>
+        <script type="text/javascript">
+        function add_form(src_form, str_id, insertbefore) {
+          var num = $('#id_'+str_id+'-TOTAL_FORMS').val();
+          $('#id_'+str_id+'-TOTAL_FORMS').val(parseInt(num)+1);
+
+          var html = $(src_form).html().replace(/__prefix__/g, ''+num);
+          console.log(html);
+          $(html).insertBefore($(insertbefore));
+          return false;
+        }
+        $(document).ready(function(){
+          $('a#add_%s').click(function(event){
+            add_form('#empty_%s', '%s', this);
+            return false;
+          });
+        });
+        </script>
+        """ % (self.name, self.name, self.name, self.name, self.name)
+
+        empty_form = '<div id="empty_%s" style="display: none;">%s</div>' % (self.name, self.form.empty_form.as_p())
+
+        return self.form.as_p()+ empty_form + management_javascript
+
+    def value_from_datadict(self, data, files, name):
+        """
+        Given a dictionary of data and this widget's name, returns the value
+        of this widget. Returns None if it's not provided.
+        """
+        self._instanciate_formset(data=data)
+        return self.form_cls.get_data(self.form.cleaned_data)
+
+class FormsetField(forms.Field):
+    widget = FormsetInput
+    def __init__(self, form=None, name=None, required=True, widget=None, label=None, initial=None):
+        self.widget = FormsetInput(form=form, name=name)
+
+        super(FormsetField, self).__init__(required=required, label=label, initial=initial)
+
+    def validate(self, value):
+        if value in validators.EMPTY_VALUES and self.required:
+            if not (type(value) == list and len(value) == 0):
+                raise ValidationError(self.error_messages['required'])
+
 class MongoFormFieldGenerator(object):
     """This class generates Django form-fields for mongoengine-fields."""
-    
+
     def generate(self, field_name, field):
-        """Tries to lookup a matching formfield generator (lowercase 
+        """Tries to lookup a matching formfield generator (lowercase
         field-classname) and raises a NotImplementedError of no generator
         can be found.
         """
@@ -143,3 +222,13 @@ class MongoFormFieldGenerator(object):
 
     def generate_referencefield(self, field_name, field):
         return ReferenceField(field.document_type.objects)
+
+    def generate_listfield(self, field_name, field):
+        if isinstance(field.field, StringField):
+            return FormsetField(
+                form=StringForm,
+                name=field_name,
+            )
+        else:
+            raise NotImplementedError('This Listfield is not supported by MongoForm yet')
+
