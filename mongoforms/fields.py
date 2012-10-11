@@ -1,9 +1,11 @@
 # -*- coding:utf-8 -*-
 
+import re
 from django import forms
 from django.core import validators
 from django.core.exceptions import ValidationError
-from django.forms.formsets import formset_factory, BaseFormSet
+from django.forms.formsets import (formset_factory, BaseFormSet, TOTAL_FORM_COUNT,
+                                   DELETION_FIELD_NAME)
 from django.utils.encoding import smart_unicode
 from bson.errors import InvalidId
 from bson.objectid import ObjectId
@@ -48,6 +50,7 @@ class ReferenceField(forms.ChoiceField):
             raise forms.ValidationError(self.error_messages['invalid_choice'] % {'value':value})
         return obj
 
+
 class StringForm(forms.Form):
     da_string = forms.CharField(required=True)
 
@@ -57,39 +60,50 @@ class StringForm(forms.Form):
             return [{'da_string': i} for i in initial]
 
     @classmethod
-    def get_data(cls, cleaned_data):
-        return [data['da_string'] for data in cleaned_data]
+    def to_python(cls, cleaned_data):
+        return cleaned_data['da_string']
+
 
 class MixinEmbeddedForm:
+
     @classmethod
     def format_initial(cls, initial):
         if initial:
-            return [d.__dict__['_data'] for d in initial]
+            try:
+                return [d.__dict__['_data'] for d in initial]
+            except AttributeError:
+                return initial
 
     @classmethod
-    def get_data(cls, cleaned_data):
-        return [cls.Meta.document(**data) for data in cleaned_data]
+    def to_python(cls, cleaned_data):
+        return cls.Meta.document(**cleaned_data)
+
 
 class FormsetInput(forms.Widget):
 
     def __init__(self, form=None, name='', attrs=None):
         super(FormsetInput, self).__init__(attrs=attrs)
+        self.form = None
         self.form_cls = form
         self.name = name
-        self.formset = formset_factory(self.form_cls, formset=BaseFormSet, extra=0, can_delete=True)
+        self.formset = formset_factory(self.form_cls, formset=BaseFormSet,
+                                       extra=0, can_delete=True)
 
     def _instanciate_formset(self, data=None, initial=None):
         initial = self.form_cls.format_initial(initial)
         self.form = self.formset(data, initial=initial, prefix=self.name)
+        if data:
+            self.form.is_valid()
 
     def render(self, name, value, attrs=None):
-        self._instanciate_formset(initial=value)
+        if not self.form:
+            self._instanciate_formset(initial=value)
         management_javascript = """
         <a href="#add_%s" id="add_%s">Add an entry</a>
         <script type="text/javascript">
         function add_form(src_form, str_id, insertbefore) {
-          var num = $('#id_'+str_id+'-TOTAL_FORMS').val();
-          $('#id_'+str_id+'-TOTAL_FORMS').val(parseInt(num)+1);
+          var num = $('#id_'+str_id+'-%s').val();
+          $('#id_'+str_id+'-%s').val(parseInt(num)+1);
 
           var html = $(src_form).html().replace(/__prefix__/g, ''+num);
           $(html).insertBefore($(insertbefore));
@@ -102,11 +116,16 @@ class FormsetInput(forms.Widget):
           });
         });
         </script>
-        """ % (self.name, self.name, self.name, self.name, self.name)
+        """ % (self.name, self.name, TOTAL_FORM_COUNT, TOTAL_FORM_COUNT,
+               self.name, self.name, self.name)
 
-        empty_form = '<div id="empty_%s" style="display: none;">%s</div>' % (self.name, self.form.empty_form.as_p())
+        empty_form = '<div id="empty_%s" style="display: none;">' \
+                     '<ul>%s</ul></div>' % \
+                      (self.name, self.form.empty_form.as_ul())
 
-        return self.form.as_p()+ empty_form + management_javascript
+        form_as_list = '<ul>%s</ul>' % self.form.as_ul()
+
+        return form_as_list + empty_form + management_javascript
 
     def value_from_datadict(self, data, files, name):
         """
@@ -114,20 +133,34 @@ class FormsetInput(forms.Widget):
         of this widget. Returns None if it's not provided.
         """
         self._instanciate_formset(data=data)
-        cleaned_data = [data for data in self.form.cleaned_data if not data.get('DELETE')]
-        return self.form_cls.get_data(cleaned_data)
+        prefix = self.form.prefix
+        values = []
+        for index in range(0, self.form.total_form_count()):
+            subform_prefix = prefix + u'-' + unicode(index) + u'-'
+            datas = {}
+            for k, v in data.iteritems():
+                if k.startswith(subform_prefix):
+                    datas[re.sub(subform_prefix, '', k)] = v
+            if DELETION_FIELD_NAME not in datas:
+                values.append(self.form_cls.to_python(datas))
+
+        return values
+
 
 class FormsetField(forms.Field):
     widget = FormsetInput
-    def __init__(self, form=None, name=None, required=True, widget=None, label=None, initial=None, instance=None):
+    def __init__(self, form=None, name=None, required=True, widget=None,
+                 label=None, initial=None, instance=None):
         self.widget = FormsetInput(form=form, name=name)
 
-        super(FormsetField, self).__init__(required=required, label=label, initial=initial)
+        super(FormsetField, self).__init__(required=required, label=label,
+                                           initial=initial)
 
     def validate(self, value):
         if value in validators.EMPTY_VALUES and self.required:
             if not (type(value) == list and len(value) == 0):
                 raise ValidationError(self.error_messages['required'])
+
 
 class MongoFormFieldGenerator(object):
     """This class generates Django form-fields for mongoengine-fields."""
@@ -246,11 +279,14 @@ class MongoFormFieldGenerator(object):
                     '%sForm'%field.field.document_type_obj.__name__,
                     (MongoForm, MixinEmbeddedForm),
                     {
-                        'Meta': type('Meta', tuple(), {'document': field.field.document_type_obj})
+                        'Meta': type('Meta', tuple(),
+                                     {'document': field.field.document_type_obj}
+                        )
                     }
                 ),
                 name=field_name,
             )
         else:
-            raise NotImplementedError('This Listfield is not supported by MongoForm yet')
+            raise NotImplementedError('This Listfield is not supported by \
+                                      MongoForm yet')
 
