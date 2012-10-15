@@ -4,7 +4,7 @@ import re
 from django import forms
 from django.core import validators
 from django.core.exceptions import ValidationError
-from django.forms.formsets import (formset_factory, BaseFormSet, TOTAL_FORM_COUNT,
+from django.forms.formsets import (formset_factory, TOTAL_FORM_COUNT,
                                    DELETION_FIELD_NAME)
 from django.utils.encoding import smart_unicode
 from bson.errors import InvalidId
@@ -86,8 +86,7 @@ class FormsetInput(forms.Widget):
         self.form = None
         self.form_cls = form
         self.name = name
-        self.formset = formset_factory(self.form_cls, formset=BaseFormSet,
-                                       extra=0, can_delete=True)
+        self.formset = formset_factory(self.form_cls, extra=0, can_delete=True)
 
     def _instanciate_formset(self, data=None, initial=None):
         initial = self.form_cls.format_initial(initial)
@@ -144,7 +143,10 @@ class FormsetInput(forms.Widget):
                 if k.startswith(subform_prefix):
                     datas[re.sub(subform_prefix, '', k)] = v
             if DELETION_FIELD_NAME not in datas:
-                values.append(self.form_cls.to_python(datas))
+                obj = self.form_cls.to_python(datas)
+                if not obj and self.form.forms[index].empty_permitted:
+                    continue
+                values.append(obj)
 
         return values
 
@@ -156,11 +158,6 @@ class FormsetField(forms.Field):
 
         super(FormsetField, self).__init__(required=required, label=label,
                                            initial=initial)
-
-    def validate(self, value):
-        if value in validators.EMPTY_VALUES and self.required:
-            if not (type(value) == list and len(value) == 0):
-                raise ValidationError(self.error_messages['required'])
 
 
 class MongoFormFieldGenerator(object):
