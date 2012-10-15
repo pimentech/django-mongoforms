@@ -64,7 +64,7 @@ class StringForm(forms.Form):
         return cleaned_data['da_string']
 
 
-class MixinEmbeddedForm:
+class MixinEmbeddedForm(object):
 
     @classmethod
     def format_initial(cls, initial):
@@ -101,31 +101,33 @@ class FormsetInput(forms.Widget):
         management_javascript = """
         <a href="#add_%s" id="add_%s">Add an entry</a>
         <script type="text/javascript">
-        function add_form(src_form, str_id, insertbefore) {
-          var num = $('#id_'+str_id+'-%s').val();
-          $('#id_'+str_id+'-%s').val(parseInt(num)+1);
+          function add_form(src_form, str_id, append_to) {
+            var num = $('#id_'+str_id+'-%s').val();
+            $('#id_'+str_id+'-%s').val(parseInt(num)+1);
 
-          var html = $(src_form).html().replace(/__prefix__/g, ''+num);
-          $(html).insertBefore($(insertbefore));
-          return false;
-        }
-        $(document).ready(function(){
-          $('a#add_%s').click(function(event){
-            add_form('#empty_%s', '%s', this);
+            var html = $(src_form).html().replace(/__prefix__/g, ''+num);
+            $(html).appendTo($(append_to));
             return false;
+          }
+          $(document).ready(function(){
+            $('a#add_%s').click(function(event){
+              add_form('#empty_%s', '%s', 'ul.%s');
+              return false;
+            });
           });
-        });
         </script>
         """ % (self.name, self.name, TOTAL_FORM_COUNT, TOTAL_FORM_COUNT,
-               self.name, self.name, self.name)
+               self.name, self.name, self.name, self.form.prefix)
 
         empty_form = '<div id="empty_%s" style="display: none;">' \
-                     '<ul>%s</ul></div>' % \
+                     '<li><ul>%s</ul></li></div>' % \
                       (self.name, self.form.empty_form.as_ul())
 
-        form_as_list = '<ul>%s</ul>' % self.form.as_ul()
+        form_html = self.form.management_form.as_p()
+        form_html += '<ul class="formset %s">%s</ul>' % (self.form.prefix,
+         ''.join(['<li><ul>%s</ul></li>' % f.as_ul() for f in self.form.forms]))
 
-        return form_as_list + empty_form + management_javascript
+        return form_html + empty_form + management_javascript
 
     def value_from_datadict(self, data, files, name):
         """
@@ -148,7 +150,6 @@ class FormsetInput(forms.Widget):
 
 
 class FormsetField(forms.Field):
-    widget = FormsetInput
     def __init__(self, form=None, name=None, required=True, widget=None,
                  label=None, initial=None, instance=None):
         self.widget = FormsetInput(form=form, name=name)
