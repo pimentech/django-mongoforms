@@ -125,7 +125,7 @@ class FormsetInput(forms.Widget):
             $('#id_'+str_id+'-%s').val(parseInt(num)+1);
 
             var html = $(src_form).html().replace(/__prefix__/g, ''+num);
-            $(html).appendTo($(append_to));
+            $('<li class="list-group-item">'+html+'</li>').appendTo($(append_to));
             return false;
           }
           $(document).ready(function(){
@@ -144,8 +144,8 @@ class FormsetInput(forms.Widget):
         empty_form = t.render(c)
 
         form_html = self.form.management_form.as_p()
-        form_html += '<ul class="formset %s">%s</ul>' % (self.form.prefix,
-         ''.join([Template('{% load bootstrap3 %}{% bootstrap_form form %}').render(Context({'form': f}))  for f in self.form.forms])) 
+        form_html += '<ul class="list-group formset %s">%s</ul>' % (self.form.prefix,
+            Template('{% load bootstrap3 %}{% for f in form.forms %}<li class="list-group-item">{% bootstrap_form f %}{% endfor %}</li>').render(Context({'form': self.form})))
         return form_html + empty_form + management_javascript
 
     def value_from_datadict(self, data, files, name):
