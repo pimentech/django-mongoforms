@@ -1,11 +1,12 @@
 # -*- coding:utf-8 -*-
 
 import re
+
 from django import forms
-#from django.core import validators
-#from django.core.exceptions import ValidationError
+from django.conf import settings
 from django.forms.formsets import (formset_factory, TOTAL_FORM_COUNT,
                                    DELETION_FIELD_NAME)
+from django.template import Context, Template
 from django.utils.encoding import smart_unicode
 from bson.errors import InvalidId
 from bson.objectid import ObjectId
@@ -114,29 +115,34 @@ class FormsetInput(forms.Widget):
             self.form.is_valid()
 
     def render(self, name, value, attrs=None):
+        if 'bootstrap3' in settings.INSTALLED_APPS:
+            return self.render_bootstrap3(name, value, attrs=attrs)
+        else:
+            return self.render_vanilla(name, value, attrs=attrs)
+
+    def render_vanilla(self, name, value, attrs=None):
         if not self.form:
             self._instanciate_formset(initial=value)
         management_javascript = """
         <a href="#add_%s" id="add_%s">Add an entry</a>
         <script type="text/javascript">
-          function add_form(src_form, str_id, append_to) {
+          function add_form_%s(src_form, str_id, append_to) {
             var num = $('#id_'+str_id+'-%s').val();
             $('#id_'+str_id+'-%s').val(parseInt(num)+1);
 
             var html = $(src_form).html().replace(/__prefix__/g, ''+num);
-            $(html).appendTo($(append_to));
+            $('<li class="list-group-item">'+html+'</li>').appendTo($(append_to));
             return false;
           }
           $(document).ready(function(){
             $('a#add_%s').click(function(event){
-              add_form('#empty_%s', '%s', 'ul.%s');
+              add_form_%s('#empty_%s', '%s', 'ul.%s');
               return false;
             });
           });
         </script>
-        """ % (self.name, self.name, TOTAL_FORM_COUNT, TOTAL_FORM_COUNT,
-               self.name, self.name, self.name, self.form.prefix)
-
+        """ % (self.name, self.name, self.name, TOTAL_FORM_COUNT, TOTAL_FORM_COUNT,
+               self.name, self.name, self.name, self.name, self.form.prefix)
         empty_form = '<div id="empty_%s" style="display: none;">' \
                      '<li><ul>%s</ul></li></div>' % \
                       (self.name, self.form.empty_form.as_ul())
@@ -145,6 +151,40 @@ class FormsetInput(forms.Widget):
         form_html += '<ul class="formset %s">%s</ul>' % (self.form.prefix,
          ''.join(['<li><ul>%s</ul></li>' % f.as_ul() for f in self.form.forms]))
 
+        return form_html + empty_form + management_javascript
+
+    def render_bootstrap3(self, name, value, attrs=None):
+        if not self.form:
+            self._instanciate_formset(initial=value)
+        management_javascript = """
+        <a href="#add_%s" id="add_%s">Add an entry</a>
+        <script type="text/javascript">
+          function add_form_%s(src_form, str_id, append_to) {
+            var num = $('#id_'+str_id+'-%s').val();
+            $('#id_'+str_id+'-%s').val(parseInt(num)+1);
+
+            var html = $(src_form).html().replace(/__prefix__/g, ''+num);
+            $('<li class="list-group-item">'+html+'</li>').appendTo($(append_to));
+            return false;
+          }
+          $(document).ready(function(){
+            $('a#add_%s').click(function(event){
+              add_form_%s('#empty_%s', '%s', 'ul.%s');
+              return false;
+            });
+          });
+        </script>
+        """ % (self.name, self.name, self.name, TOTAL_FORM_COUNT, TOTAL_FORM_COUNT,
+               self.name, self.name, self.name, self.name, self.form.prefix)
+        t = Template('{% load bootstrap3 %}'+
+            '<div id="empty_%s" style="display: none;">'% self.name +
+            '{% bootstrap_form form %}</div>' )
+        c = Context({'form': self.form.empty_form})
+        empty_form = t.render(c)
+
+        form_html = self.form.management_form.as_p()
+        form_html += '<ul class="list-group formset %s">%s</ul>' % (self.form.prefix,
+            Template('{% load bootstrap3 %}{% for f in form.forms %}<li class="list-group-item">{% bootstrap_form f %}{% endfor %}</li>').render(Context({'form': self.form})))
         return form_html + empty_form + management_javascript
 
     def value_from_datadict(self, data, files, name):
