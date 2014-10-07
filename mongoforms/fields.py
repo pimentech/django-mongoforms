@@ -2,8 +2,8 @@
 
 import re
 from django import forms
-from django.core import validators
-from django.core.exceptions import ValidationError
+#from django.core import validators
+#from django.core.exceptions import ValidationError
 from django.forms.formsets import (formset_factory, TOTAL_FORM_COUNT,
                                    DELETION_FIELD_NAME)
 from django.utils.encoding import smart_unicode
@@ -40,8 +40,11 @@ class ReferenceField(forms.ChoiceField):
 
     def clean(self, value):
         try:
-            oid = ObjectId(value)
-            oid = super(ReferenceField, self).clean(oid)
+            if isinstance(self.queryset._document._fields['id'], ObjectId):
+                pk_value = ObjectId(value)
+            else:
+                pk_value = value
+            oid = super(ReferenceField, self).clean(pk_value)
             if 'id' in self.queryset._query_obj.query:
                 obj = self.queryset.get()
             else:
@@ -52,7 +55,7 @@ class ReferenceField(forms.ChoiceField):
 
 
 class StringForm(forms.Form):
-    da_string = forms.CharField(required=True)
+    da_string = forms.CharField(label=" ", required=True)
 
     @classmethod
     def format_initial(cls, initial):
@@ -63,6 +66,22 @@ class StringForm(forms.Form):
     def to_python(cls, cleaned_data):
         return cleaned_data['da_string']
 
+
+class DictForm(forms.Form):
+    key = forms.CharField(required=True)
+    value = forms.CharField(required=True)
+
+    @classmethod
+    def format_initial(cls, initial):
+        if initial:
+            return [{'key': k, "value": v } for k, v in initial.iteritems()]
+
+    @classmethod
+    def to_python(cls, cleaned_data):
+        return {
+            'key': cleaned_data['key'],
+            'value': cleaned_data['value']
+        }
 
 class MixinEmbeddedForm(object):
 
@@ -262,6 +281,12 @@ class MongoFormFieldGenerator(object):
 
     def generate_referencefield(self, field_name, field):
         return ReferenceField(field.document_type.objects)
+
+    def generate_dictfield(self, field_name, field):
+        return FormsetField(
+            form=DictForm,
+            name=field_name,
+        )
 
     def generate_listfield(self, field_name, field):
         if isinstance(field.field, StringField):
