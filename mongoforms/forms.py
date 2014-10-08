@@ -95,7 +95,7 @@ class MongoForm(forms.BaseForm):
         if prefix:
             for k, v in self.fields.items():
                 if isinstance(v, FormsetField):
-                    v.widget.name = "%s_%s" % (prefix, v.widget.name)
+                    v.widget.name = "%s-%s" % (prefix, v.widget.name)
 
     def save(self, commit=True):
         """save the instance or create a new one.."""

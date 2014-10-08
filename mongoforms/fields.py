@@ -4,7 +4,7 @@ import re
 
 from django import forms
 from django.conf import settings
-from django.forms.formsets import (formset_factory, TOTAL_FORM_COUNT,
+from django.forms.formsets import (formset_factory, TOTAL_FORM_COUNT, BaseFormSet,
                                    DELETION_FIELD_NAME)
 from django.template import Context, Template
 from django.utils.encoding import smart_unicode
@@ -84,11 +84,14 @@ class DictForm(forms.Form):
 
     @classmethod
     def to_python(cls, cleaned_data):
-        return (cleaned_data['key'], cleaned_data['value'])
+        return {cleaned_data['key']: cleaned_data['value']}
 
     @classmethod
     def format_values(cls, datas):
-        return dict(datas)
+        d = {}
+        for dico in datas:
+            d.update(dico)
+        return d
 
 
 class MixinEmbeddedForm(object):
@@ -97,7 +100,7 @@ class MixinEmbeddedForm(object):
     def format_initial(cls, initial):
         if initial:
             try:
-                return [d.__dict__['_data'] for d in initial]
+                return [d._data for d in initial]
             except AttributeError:
                 return initial
 
@@ -208,21 +211,14 @@ class FormsetInput(forms.Widget):
         self._instanciate_formset(data=data)
         prefix = self.form.prefix
         values = []
-        for index in range(0, self.form.total_form_count()):
-            subform_prefix = prefix + u'-' + unicode(index) + u'-'
-            datas = {}
-            for k, v in data.iteritems():
-                if k.startswith(subform_prefix):
-                    datas[re.sub(subform_prefix, '', k)] = v
-            if DELETION_FIELD_NAME not in datas:
-                obj = self.form_cls.to_python(datas)
-                if not obj and self.form.forms[index].empty_permitted:
-                    continue
-                values.append(obj)
 
-        values = self.form_cls.format_values(values)
+        if self.form.is_valid():
+            for form in self.form.forms:
+                if not form.cleaned_data.get(DELETION_FIELD_NAME):
+                    values.append(self.form_cls.to_python(form.cleaned_data))
 
-        return values
+        if values:
+            return self.form_cls.format_values(values)
 
 
 class FormsetField(forms.Field):
