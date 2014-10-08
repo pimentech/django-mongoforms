@@ -2,7 +2,7 @@ import types
 from django import forms
 from django.utils.datastructures import SortedDict
 from mongoengine.base import BaseDocument
-from fields import MongoFormFieldGenerator
+from fields import MongoFormFieldGenerator, FormsetField
 from utils import mongoengine_validate_wrapper, iter_valid_fields
 from mongoengine.fields import ReferenceField
 
@@ -35,6 +35,7 @@ class MongoFormMetaClass(type):
 
             # walk through the document fields
             for field_name, field in iter_valid_fields(attrs['Meta']):
+                print field_name
                 # add field and override clean method to respect mongoengine-validator
                 doc_fields[field_name] = formfield_generator.generate(field_name, field)
                 doc_fields[field_name].clean = mongoengine_validate_wrapper(
@@ -91,6 +92,11 @@ class MongoForm(forms.BaseForm):
         self._validate_unique = False
         super(MongoForm, self).__init__(data, files, auto_id, prefix,
             object_data, error_class, label_suffix, empty_permitted)
+
+        if prefix:
+            for k, v in self.fields.items():
+                if isinstance(v, FormsetField):
+                    v.widget.name = "%s_%s" % (prefix, v.widget.name)
 
     def save(self, commit=True):
         """save the instance or create a new one.."""

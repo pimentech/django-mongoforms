@@ -41,7 +41,8 @@ class ReferenceField(forms.ChoiceField):
 
     def clean(self, value):
         try:
-            if isinstance(self.queryset._document._fields['id'], ObjectId):
+            id_field = self.queryset._document._meta.get('id_field', 'id')
+            if isinstance(self.queryset._document._fields[id_field], ObjectId):
                 pk_value = ObjectId(value)
             else:
                 pk_value = value
@@ -65,7 +66,11 @@ class StringForm(forms.Form):
 
     @classmethod
     def to_python(cls, cleaned_data):
-        return cleaned_data['da_string']
+        return cleaned_data.get('da_string')
+
+    @classmethod
+    def format_values(cls, datas):
+        return datas
 
 
 class DictForm(forms.Form):
@@ -79,10 +84,12 @@ class DictForm(forms.Form):
 
     @classmethod
     def to_python(cls, cleaned_data):
-        return {
-            'key': cleaned_data['key'],
-            'value': cleaned_data['value']
-        }
+        return (cleaned_data['key'], cleaned_data['value'])
+
+    @classmethod
+    def format_values(cls, datas):
+        return dict(datas)
+
 
 class MixinEmbeddedForm(object):
 
@@ -98,6 +105,9 @@ class MixinEmbeddedForm(object):
     def to_python(cls, cleaned_data):
         return cls.Meta.document(**cleaned_data)
 
+    @classmethod
+    def format_values(cls, datas):
+        return datas
 
 class FormsetInput(forms.Widget):
 
@@ -107,6 +117,7 @@ class FormsetInput(forms.Widget):
         self.form_cls = form
         self.name = name
         self.formset = formset_factory(self.form_cls, extra=0, can_delete=True)
+
 
     def _instanciate_formset(self, data=None, initial=None):
         initial = self.form_cls.format_initial(initial)
@@ -123,6 +134,7 @@ class FormsetInput(forms.Widget):
     def render_vanilla(self, name, value, attrs=None):
         if not self.form:
             self._instanciate_formset(initial=value)
+        name_as_funcname = self.name.replace('-', '_')
         management_javascript = """
         <a href="#add_%s" id="add_%s">Add an entry</a>
         <script type="text/javascript">
@@ -141,14 +153,14 @@ class FormsetInput(forms.Widget):
             });
           });
         </script>
-        """ % (self.name, self.name, self.name, TOTAL_FORM_COUNT, TOTAL_FORM_COUNT,
-               self.name, self.name, self.name, self.name, self.form.prefix)
+        """ % (self.name, self.name, name_as_funcname, TOTAL_FORM_COUNT, TOTAL_FORM_COUNT,
+               self.name, name_as_funcname, self.name, self.name, self.name)
         empty_form = '<div id="empty_%s" style="display: none;">' \
                      '<li><ul>%s</ul></li></div>' % \
                       (self.name, self.form.empty_form.as_ul())
 
         form_html = self.form.management_form.as_p()
-        form_html += '<ul class="formset %s">%s</ul>' % (self.form.prefix,
+        form_html += '<ul class="formset %s">%s</ul>' % (self.name,
          ''.join(['<li><ul>%s</ul></li>' % f.as_ul() for f in self.form.forms]))
 
         return form_html + empty_form + management_javascript
@@ -156,6 +168,7 @@ class FormsetInput(forms.Widget):
     def render_bootstrap3(self, name, value, attrs=None):
         if not self.form:
             self._instanciate_formset(initial=value)
+        name_as_funcname = self.name.replace('-', '_')
         management_javascript = """
         <a href="#add_%s" id="add_%s">Add an entry</a>
         <script type="text/javascript">
@@ -174,8 +187,8 @@ class FormsetInput(forms.Widget):
             });
           });
         </script>
-        """ % (self.name, self.name, self.name, TOTAL_FORM_COUNT, TOTAL_FORM_COUNT,
-               self.name, self.name, self.name, self.name, self.form.prefix)
+        """ % (self.name, self.name, name_as_funcname, TOTAL_FORM_COUNT, TOTAL_FORM_COUNT,
+               self.name, name_as_funcname, self.name, self.name, self.name)
         t = Template('{% load bootstrap3 %}'+
             '<div id="empty_%s" style="display: none;">'% self.name +
             '{% bootstrap_form form %}</div>' )
@@ -183,7 +196,7 @@ class FormsetInput(forms.Widget):
         empty_form = t.render(c)
 
         form_html = self.form.management_form.as_p()
-        form_html += '<ul class="list-group formset %s">%s</ul>' % (self.form.prefix,
+        form_html += '<ul class="list-group formset %s">%s</ul>' % (self.name,
             Template('{% load bootstrap3 %}{% for f in form.forms %}<li class="list-group-item">{% bootstrap_form f %}{% endfor %}</li>').render(Context({'form': self.form})))
         return form_html + empty_form + management_javascript
 
@@ -206,6 +219,8 @@ class FormsetInput(forms.Widget):
                 if not obj and self.form.forms[index].empty_permitted:
                     continue
                 values.append(obj)
+
+        values = self.form_cls.format_values(values)
 
         return values
 
@@ -266,6 +281,13 @@ class MongoFormFieldGenerator(object):
                 max_length=field.max_length,
                 initial=field.default
             )
+    def generate_slugfield(self, field_name, field):
+        return forms.SlugField(
+            required=field.required,
+            min_length=field.min_length,
+            max_length=field.max_length,
+            initial=field.default
+        )
 
     def generate_emailfield(self, field_name, field):
         return forms.EmailField(
@@ -344,7 +366,7 @@ class MongoFormFieldGenerator(object):
                     {
                         'Meta': type('Meta', tuple(),
                                      {'document': field.field.document_type_obj}
-                        )
+                        ),
                     }
                 ),
                 name=field_name,
