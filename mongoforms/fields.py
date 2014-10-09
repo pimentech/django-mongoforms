@@ -1,10 +1,8 @@
 # -*- coding:utf-8 -*-
 
-import re
-
 from django import forms
 from django.conf import settings
-from django.forms.formsets import (formset_factory, TOTAL_FORM_COUNT, BaseFormSet,
+from django.forms.formsets import (formset_factory, TOTAL_FORM_COUNT,
                                    DELETION_FIELD_NAME)
 from django.template import Context, Template
 from django.utils.encoding import smart_unicode
@@ -209,7 +207,6 @@ class FormsetInput(forms.Widget):
         of this widget. Returns None if it's not provided.
         """
         self._instanciate_formset(data=data)
-        prefix = self.form.prefix
         values = []
 
         if self.form.is_valid():
@@ -223,11 +220,11 @@ class FormsetInput(forms.Widget):
 
 class FormsetField(forms.Field):
     def __init__(self, form=None, name=None, required=True, widget=None,
-                 label=None, initial=None, instance=None):
+                 label=None, initial=None, instance=None, help_text=None):
         self.widget = FormsetInput(form=form, name=name)
 
         super(FormsetField, self).__init__(required=required, label=label,
-                                           initial=initial)
+                                           initial=initial, help_text=help_text)
 
 
 class MongoFormFieldGenerator(object):
@@ -245,105 +242,105 @@ class MongoFormFieldGenerator(object):
             raise NotImplementedError('%s is not supported by MongoForm' % \
                 field.__class__.__name__)
 
+    def get_base_attrs(self, field):
+        return {
+            'required': field.required,
+            'initial': field.default,
+            'label': field.verbose_name,
+            'help_text': field.help_text
+        }
+
     def generate_stringfield(self, field_name, field):
         if field.regex:
             return forms.CharField(
                 regex=field.regex,
-                required=field.required,
                 min_length=field.min_length,
                 max_length=field.max_length,
-                initial=field.default
+                **(self.get_base_attrs(field))
             )
         elif field.choices:
             choices = tuple(field.choices)
             if not isinstance(field.choices[0], (tuple, list)):
                 choices = zip(choices, choices)
             return forms.ChoiceField(
-                required=field.required,
-                initial=field.default,
-                choices=choices
+                choices=choices,
+                **(self.get_base_attrs(field))
             )
         elif field.max_length is None:
             return forms.CharField(
-                required=field.required,
-                initial=field.default,
                 min_length=field.min_length,
-                widget=forms.Textarea
+                widget=forms.Textarea,
+                **(self.get_base_attrs(field))
             )
         else:
             return forms.CharField(
-                required=field.required,
                 min_length=field.min_length,
                 max_length=field.max_length,
-                initial=field.default
+                **(self.get_base_attrs(field))
             )
     def generate_slugfield(self, field_name, field):
         return forms.SlugField(
-            required=field.required,
             min_length=field.min_length,
             max_length=field.max_length,
-            initial=field.default
+            **(self.get_base_attrs(field))
         )
 
     def generate_emailfield(self, field_name, field):
         return forms.EmailField(
-            required=field.required,
             min_length=field.min_length,
             max_length=field.max_length,
-            initial=field.default
+            **(self.get_base_attrs(field))
         )
 
     def generate_urlfield(self, field_name, field):
         return forms.URLField(
-            required=field.required,
             min_length=field.min_length,
             max_length=field.max_length,
-            initial=field.default
+            **(self.get_base_attrs(field))
         )
 
     def generate_intfield(self, field_name, field):
         return forms.IntegerField(
-            required=field.required,
             min_value=field.min_value,
             max_value=field.max_value,
-            initial=field.default
+            **(self.get_base_attrs(field))
         )
 
     def generate_floatfield(self, field_name, field):
         return forms.FloatField(
-            required=field.required,
             min_value=field.min_value,
             max_value=field.max_value,
-            initial=field.default
+            **(self.get_base_attrs(field))
         )
 
     def generate_decimalfield(self, field_name, field):
         return forms.DecimalField(
-            required=field.required,
             min_value=field.min_value,
             max_value=field.max_value,
-            initial=field.default
+            **(self.get_base_attrs(field))
         )
 
     def generate_booleanfield(self, field_name, field):
         return forms.BooleanField(
-            required=field.required,
-            initial=field.default
+            **(self.get_base_attrs(field))
         )
 
     def generate_datetimefield(self, field_name, field):
         return forms.DateTimeField(
-            required=field.required,
-            initial=field.default
+            **(self.get_base_attrs(field))
         )
 
     def generate_referencefield(self, field_name, field):
-        return ReferenceField(field.document_type.objects)
+        return ReferenceField(
+            field.document_type.objects,
+            **(self.get_base_attrs(field))
+        )
 
     def generate_dictfield(self, field_name, field):
         return FormsetField(
             form=DictForm,
             name=field_name,
+            **(self.get_base_attrs(field))
         )
 
     def generate_listfield(self, field_name, field):
@@ -351,6 +348,7 @@ class MongoFormFieldGenerator(object):
             return FormsetField(
                 form=StringForm,
                 name=field_name,
+                **(self.get_base_attrs(field))
             )
         elif isinstance(field.field, EmbeddedDocumentField):
             # avoid circular dependencies
@@ -366,6 +364,7 @@ class MongoFormFieldGenerator(object):
                     }
                 ),
                 name=field_name,
+                **(self.get_base_attrs(field))
             )
         else:
             raise NotImplementedError('This Listfield is not supported by \
