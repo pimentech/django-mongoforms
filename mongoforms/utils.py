@@ -38,7 +38,8 @@ def iter_valid_fields(meta):
             if field:
                 yield (field_name, field)
     else:
-        for field_name, field in meta.document._fields.iteritems():
+        for field_name in meta.document._fields_ordered:
             # skip excluded fields
             if field_name not in meta_exclude:
+                field = meta.document._fields.get(field_name)
                 yield (field_name, field)
