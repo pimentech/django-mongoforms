@@ -352,17 +352,9 @@ class MongoFormFieldGenerator(object):
             )
         elif isinstance(field.field, EmbeddedDocumentField):
             # avoid circular dependencies
-            from forms import MongoFormMetaClass, MongoForm
+            from forms import embedded_mongoform_factory
             return FormsetField(
-                form=MongoFormMetaClass(
-                    '%sForm'%field.field.document_type_obj.__name__,
-                    (MongoForm, MixinEmbeddedForm),
-                    {
-                        'Meta': type('Meta', tuple(),
-                                     {'document': field.field.document_type_obj}
-                        ),
-                    }
-                ),
+                form=embedded_mongoform_factory(field.field.document_type_obj),
                 name=field_name,
                 **(self.get_base_attrs(field))
             )
