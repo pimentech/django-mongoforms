@@ -354,7 +354,7 @@ class MongoFormFieldGenerator(object):
             # avoid circular dependencies
             from forms import mongoform_factory
             return FormsetField(
-                form=mongoform_factory(field.field.document_type_obj),
+                form=mongoform_factory(field.field.document_type_obj, extra_bases=(MixinEmbeddedForm, )),
                 name=field_name,
                 **(self.get_base_attrs(field))
             )
