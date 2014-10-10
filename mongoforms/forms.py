@@ -2,7 +2,7 @@ import types
 from django import forms
 from django.utils.datastructures import SortedDict
 from mongoengine.base import BaseDocument
-from fields import MongoFormFieldGenerator, FormsetField
+from fields import MongoFormFieldGenerator, FormsetField, MixinEmbeddedForm
 from utils import mongoengine_validate_wrapper, iter_valid_fields
 from mongoengine.fields import ReferenceField
 
@@ -108,3 +108,15 @@ class MongoForm(forms.BaseForm):
             self.instance.save()
 
         return self.instance
+
+
+def mongoform_factory(embedded_document):
+    return MongoFormMetaClass(
+        '%sForm' % embedded_document.__name__,
+        (MongoForm, MixinEmbeddedForm),
+        {
+            'Meta': type('Meta', tuple(),
+                         {'document': embedded_document}
+            ),
+        }
+    )
