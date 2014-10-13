@@ -217,6 +217,7 @@ class FormsetInput(forms.Widget):
         if values:
             return self.form_cls.format_values(values)
 
+        return values
 
 class FormsetField(forms.Field):
     def __init__(self, form=None, name=None, required=True, widget=None,
