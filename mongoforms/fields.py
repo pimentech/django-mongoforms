@@ -214,10 +214,8 @@ class FormsetInput(forms.Widget):
                 if not form.cleaned_data.get(DELETION_FIELD_NAME):
                     values.append(self.form_cls.to_python(form.cleaned_data))
 
-        if values:
-            return self.form_cls.format_values(values)
+        return self.form_cls.format_values(values)
 
-        return values
 
 class FormsetField(forms.Field):
     def __init__(self, form=None, name=None, required=True, widget=None,
