@@ -13,7 +13,8 @@ from mongoengine import StringField, EmbeddedDocumentField, ObjectIdField, IntFi
 
 class ReferenceWidget(forms.Select):
     def render(self, name, value, attrs=None, choices=()):
-        return super(ReferenceWidget, self).render(name, value.id, attrs, choices)
+        value = value and value.id or value
+        return super(ReferenceWidget, self).render(name, value, attrs, choices)
 
 
 class ReferenceField(forms.ChoiceField):
@@ -97,14 +98,12 @@ class DictForm(forms.Form):
             d.update(dico)
         return d
 
-
 class MixinEmbeddedForm(object):
-
     @classmethod
     def format_initial(cls, initial):
         if initial:
             try:
-                return [d._data for d in initial]
+                return initial._data
             except AttributeError:
                 return initial
 
@@ -115,6 +114,18 @@ class MixinEmbeddedForm(object):
     @classmethod
     def format_values(cls, datas):
         return datas
+
+
+class MixinEmbeddedFormset(MixinEmbeddedForm):
+
+    @classmethod
+    def format_initial(cls, initial):
+        if initial:
+            try:
+                return [d._data for d in initial]
+            except AttributeError:
+                return initial
+
 
 class FormsetInput(forms.Widget):
 
@@ -229,6 +240,58 @@ class FormsetField(forms.Field):
         self.widget = FormsetInput(form=form, name=name)
 
         super(FormsetField, self).__init__(required=required, label=label,
+                                           initial=initial, help_text=help_text)
+
+
+class FormInput(forms.Widget):
+    def __init__(self, form=None, name='', attrs=None):
+        super(FormInput, self).__init__(attrs=attrs)
+        self.form = None
+        self.form_cls = form
+        self.name = name
+
+    def _instanciate_form(self, data=None, initial=None):
+        initial = self.form_cls.format_initial(initial)
+        self.form = self.form_cls(data, initial=initial, prefix=self.name)
+        if data:
+            self.form.is_valid()
+
+    def render(self, name, value, attrs=None):
+        if 'bootstrap3' in settings.INSTALLED_APPS:
+            return self.render_bootstrap3(name, value, attrs=attrs)
+        else:
+            return self.render_vanilla(name, value, attrs=attrs)
+
+    def render_vanilla(self, name, value, attrs=None):
+        if not self.form:
+            self._instanciate_form(initial=value)
+        return self.form.as_ul()
+
+    def render_bootstrap3(self, name, value, attrs=None):
+        if not self.form:
+            self._instanciate_form(initial=value)
+        return Template('{% load bootstrap3 %}{% bootstrap_form form %}</li>').render(Context({'form': self.form}))
+
+    def value_from_datadict(self, data, files, name):
+        """
+        Given a dictionary of data and this widget's name, returns the value
+        of this widget. Returns None if it's not provided.
+        """
+        self._instanciate_form(data=data)
+        values = None
+
+        if self.form.is_valid():
+            values = self.form_cls.to_python(self.form.cleaned_data)
+
+        return self.form_cls.format_values(values)
+
+
+class FormField(forms.Field):
+    def __init__(self, form=None, name=None, required=True, widget=None,
+                 label=None, initial=None, instance=None, help_text=None):
+        self.widget = FormInput(form=form, name=name)
+
+        super(FormField, self).__init__(required=required, label=label,
                                            initial=initial, help_text=help_text)
 
 
@@ -349,7 +412,7 @@ class MongoFormFieldGenerator(object):
         )
 
     def generate_listfield(self, field_name, field):
-        if isinstance(field.field, StringField):
+        if isinstance(field.field, (StringField, IntField)):
             return FormsetField(
                 form=StringForm,
                 name=field_name,
@@ -359,11 +422,21 @@ class MongoFormFieldGenerator(object):
             # avoid circular dependencies
             from forms import mongoform_factory
             return FormsetField(
-                form=mongoform_factory(field.field.document_type_obj, extra_bases=(MixinEmbeddedForm, )),
+                form=mongoform_factory(field.field.document_type_obj, extra_bases=(MixinEmbeddedFormset, )),
                 name=field_name,
                 **(self.get_base_attrs(field))
             )
         else:
-            raise NotImplementedError('This Listfield is not supported by \
-                                      MongoForm yet')
+            raise NotImplementedError('This Listfield is not supported by MongoForm yet')
+
+    def generate_embeddeddocumentfield(self, field_name, field):
+        from forms import mongoform_factory
+        return FormField(
+            form=mongoform_factory(field.document_type_obj,
+                extra_bases=(MixinEmbeddedForm, ),
+                extra_attrs=self.get_base_attrs(field)
+            ),
+            name=field_name,
+            **(self.get_base_attrs(field))
+        )
 

@@ -1,6 +1,7 @@
 from django import forms
 from mongoengine.base import ValidationError
-from bson.objectid import ObjectId
+#from bson.objectid import ObjectId
+from mongoengine.base.fields import ObjectIdField
 
 
 def mongoengine_validate_wrapper(old_clean, new_clean):
@@ -27,8 +28,8 @@ def iter_valid_fields(meta):
     meta_fields = getattr(meta, 'fields', ())
     meta_exclude = getattr(meta, 'exclude', ())
     id_field = meta.document._meta.get('id_field', 'id')
-    if type(meta.document._fields.get(id_field)) == ObjectId:
-        meta_exclude += (meta.document._meta.get(id_field),)
+    if isinstance(meta.document._fields.get(id_field), ObjectIdField):
+        meta_exclude += (id_field,)
 
     # walk through meta_fields or through the document fields to keep
     # meta_fields order in the form
