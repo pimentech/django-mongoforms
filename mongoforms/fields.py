@@ -8,13 +8,19 @@ from django.template import Context, Template
 from django.utils.encoding import smart_unicode
 from bson.errors import InvalidId
 from bson.objectid import ObjectId
-from mongoengine import StringField, EmbeddedDocumentField
+from mongoengine import StringField, EmbeddedDocumentField, ObjectIdField, IntField
+
+
+class ReferenceWidget(forms.Select):
+    def render(self, name, value, attrs=None, choices=()):
+        return super(ReferenceWidget, self).render(name, value.id, attrs, choices)
 
 
 class ReferenceField(forms.ChoiceField):
     """
     Reference field for mongo forms. Inspired by `django.forms.models.ModelChoiceField`.
     """
+    widget=ReferenceWidget
     def __init__(self, queryset, *aargs, **kwaargs):
         forms.Field.__init__(self, *aargs, **kwaargs)
         self.queryset = queryset
@@ -32,7 +38,7 @@ class ReferenceField(forms.ChoiceField):
         if hasattr(self, '_choices'):
             return self._choices
 
-        self._choices = [(obj.id, smart_unicode(obj)) for obj in self.queryset]
+        self._choices = [(obj.pk, smart_unicode(obj)) for obj in self.queryset]
         return self._choices
 
     choices = property(_get_choices, forms.ChoiceField._set_choices)
@@ -40,7 +46,7 @@ class ReferenceField(forms.ChoiceField):
     def clean(self, value):
         try:
             id_field = self.queryset._document._meta.get('id_field', 'id')
-            if isinstance(self.queryset._document._fields[id_field], ObjectId):
+            if isinstance(self.queryset._document._fields[id_field], ObjectIdField):
                 pk_value = ObjectId(value)
             else:
                 pk_value = value
