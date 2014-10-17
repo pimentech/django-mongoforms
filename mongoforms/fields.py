@@ -13,7 +13,10 @@ from mongoengine import StringField, EmbeddedDocumentField, ObjectIdField, IntFi
 
 class ReferenceWidget(forms.Select):
     def render(self, name, value, attrs=None, choices=()):
-        value = value and value.id or value
+        try:
+            value = value.id
+        except:
+            pass
         return super(ReferenceWidget, self).render(name, value, attrs, choices)
 
 

@@ -110,17 +110,20 @@ class MongoForm(forms.BaseForm):
         return self.instance
 
 
-def mongoform_factory(embedded_document, extra_bases=None, extra_attrs=None):
+def mongoform_factory(embedded_document, extra_bases=None, extra_attrs=None, extra_meta=None):
 
     bases = (MongoForm, )
 
     if extra_bases:
         bases += extra_bases
 
+    meta_attrs = {'document': embedded_document}
+
+    if extra_meta:
+        meta_attrs.update(extra_meta)
+
     attrs = {
-        'Meta': type('Meta', tuple(),
-                     {'document': embedded_document}
-        ),
+        'Meta': type('Meta', tuple(), meta_attrs)
     }
 
     if extra_attrs:
