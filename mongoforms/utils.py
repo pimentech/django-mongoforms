@@ -35,6 +35,9 @@ def iter_valid_fields(meta):
     # meta_fields order in the form
     if meta_fields:
         for field_name in meta_fields:
+            if '.' in field_name:
+                field_name = field_name.split('.', 1)[0]
+
             field = meta.document._fields.get(field_name)
             if field:
                 yield (field_name, field)

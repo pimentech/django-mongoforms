@@ -30,8 +30,9 @@ class MongoFormMetaClass(type):
            issubclass(attrs['Meta'].document, BaseDocument):
             doc_fields = SortedDict()
 
+            meta_fields = getattr(attrs['Meta'], 'fields', ())
             formfield_generator = getattr(attrs['Meta'], 'formfield_generator', \
-                MongoFormFieldGenerator)()
+                MongoFormFieldGenerator)(meta_fields)
 
             # walk through the document fields
             for field_name, field in iter_valid_fields(attrs['Meta']):

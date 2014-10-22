@@ -301,6 +301,9 @@ class FormField(forms.Field):
 class MongoFormFieldGenerator(object):
     """This class generates Django form-fields for mongoengine-fields."""
 
+    def __init__(self, fields):
+        self.fields = fields
+
     def generate(self, field_name, field):
         """Tries to lookup a matching formfield generator (lowercase
         field-classname) and raises a NotImplementedError of no generator
@@ -425,7 +428,11 @@ class MongoFormFieldGenerator(object):
             # avoid circular dependencies
             from forms import mongoform_factory
             return FormsetField(
-                form=mongoform_factory(field.field.document_type_obj, extra_bases=(MixinEmbeddedFormset, )),
+                form=mongoform_factory(
+                    field.field.document_type_obj,
+                    extra_bases=(MixinEmbeddedFormset, ),
+                    extra_meta={'fields': tuple([f.split('.', 1)[1] for f in self.fields if f.startswith(field_name+'.')])}
+                ),
                 name=field_name,
                 **(self.get_base_attrs(field))
             )
@@ -437,7 +444,8 @@ class MongoFormFieldGenerator(object):
         return FormField(
             form=mongoform_factory(field.document_type_obj,
                 extra_bases=(MixinEmbeddedForm, ),
-                extra_attrs=self.get_base_attrs(field)
+                extra_attrs=self.get_base_attrs(field),
+                extra_meta={'fields': tuple([f.split('.', 1)[1] for f in self.fields if f.startswith(field_name+'.')])}
             ),
             name=field_name,
             **(self.get_base_attrs(field))
