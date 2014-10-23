@@ -42,7 +42,7 @@ class ReferenceField(forms.ChoiceField):
         if hasattr(self, '_choices'):
             return self._choices
 
-        self._choices = [(obj.pk, smart_unicode(obj)) for obj in self.queryset]
+        self._choices = [('', '----')] + [(obj.pk, smart_unicode(obj)) for obj in self.queryset]
         return self._choices
 
     choices = property(_get_choices, forms.ChoiceField._set_choices)
@@ -425,10 +425,10 @@ class MongoFormFieldGenerator(object):
                 **(self.get_base_attrs(field))
             )
         elif isinstance(field.field, EmbeddedDocumentField):
-            # avoid circular dependencies
-            from forms import mongoform_factory
+            ## avoid circular dependencies
+            #from forms import mongoform_factory
             return FormsetField(
-                form=mongoform_factory(
+                form=self.get_form_factory()(
                     field.field.document_type_obj,
                     extra_bases=(MixinEmbeddedFormset, ),
                     extra_meta={'fields': tuple([f.split('.', 1)[1] for f in self.fields if f.startswith(field_name+'.')])}
@@ -440,9 +440,9 @@ class MongoFormFieldGenerator(object):
             raise NotImplementedError('This Listfield is not supported by MongoForm yet')
 
     def generate_embeddeddocumentfield(self, field_name, field):
-        from forms import mongoform_factory
+        #from forms import mongoform_factory
         return FormField(
-            form=mongoform_factory(field.document_type_obj,
+            form=self.get_form_factory()(field.document_type_obj,
                 extra_bases=(MixinEmbeddedForm, ),
                 extra_attrs=self.get_base_attrs(field),
                 extra_meta={'fields': tuple([f.split('.', 1)[1] for f in self.fields if f.startswith(field_name+'.')])}
@@ -450,4 +450,8 @@ class MongoFormFieldGenerator(object):
             name=field_name,
             **(self.get_base_attrs(field))
         )
+
+    def get_form_factory(self):
+        from forms import mongoform_factory
+        return mongoform_factory
 
