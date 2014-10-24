@@ -223,7 +223,7 @@ class FormsetInput(forms.Widget):
         form_html = self.form.management_form.as_p()
         form_html += '<ul class="list-group formset %s">%s</ul>' % (self.name,
             Template('{% load bootstrap3 %}{% for f in form.forms %}<li class="list-group-item">{% bootstrap_form f %}{% endfor %}</li>').render(Context({'form': self.form})))
-        return button_plus_one + management_javascript + form_html + empty_form# + button_plus_one
+        return button_plus_one + management_javascript + form_html + empty_form + button_plus_one
 
     def value_from_datadict(self, data, files, name):
         """
