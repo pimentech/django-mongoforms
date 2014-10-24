@@ -190,8 +190,12 @@ class FormsetInput(forms.Widget):
         if not self.form:
             self._instanciate_formset(initial=value)
         name_as_funcname = self.name.replace('-', '_')
+        button_plus_one = """
+        <a class="btn btn-primary btn-xs" href="#add_%s" id="add_%s" title="Add an entry">
+            <span class="glyphicon glyphicon-plus"></span>
+        </a>
+        """ % (self.name, self.name)
         management_javascript = """
-        <a href="#add_%s" id="add_%s">Add an entry</a>
         <script type="text/javascript">
           function add_form_%s(src_form, str_id, append_to) {
             var num = $('#id_'+str_id+'-%s').val();
@@ -208,7 +212,7 @@ class FormsetInput(forms.Widget):
             });
           });
         </script>
-        """ % (self.name, self.name, name_as_funcname, TOTAL_FORM_COUNT, TOTAL_FORM_COUNT,
+        """ % (name_as_funcname, TOTAL_FORM_COUNT, TOTAL_FORM_COUNT,
                self.name, name_as_funcname, self.name, self.name, self.name)
         t = Template('{% load bootstrap3 %}'+
             '<div id="empty_%s" style="display: none;">'% self.name +
@@ -219,7 +223,7 @@ class FormsetInput(forms.Widget):
         form_html = self.form.management_form.as_p()
         form_html += '<ul class="list-group formset %s">%s</ul>' % (self.name,
             Template('{% load bootstrap3 %}{% for f in form.forms %}<li class="list-group-item">{% bootstrap_form f %}{% endfor %}</li>').render(Context({'form': self.form})))
-        return form_html + empty_form + management_javascript
+        return button_plus_one + management_javascript + form_html + empty_form# + button_plus_one
 
     def value_from_datadict(self, data, files, name):
         """
