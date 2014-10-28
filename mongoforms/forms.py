@@ -116,7 +116,7 @@ def mongoform_factory(embedded_document, extra_bases=None, extra_attrs=None, ext
     bases = (MongoForm, )
 
     if extra_bases:
-        bases += extra_bases
+        bases = extra_bases + bases
 
     meta_attrs = {'document': embedded_document}
 
