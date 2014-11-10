@@ -305,8 +305,9 @@ class FormField(forms.Field):
 class MongoFormFieldGenerator(object):
     """This class generates Django form-fields for mongoengine-fields."""
 
-    def __init__(self, fields):
+    def __init__(self, fields, overriden_fields=None):
         self.fields = fields
+        self.overriden_fields = overriden_fields
 
     def generate(self, field_name, field):
         """Tries to lookup a matching formfield generator (lowercase
@@ -435,7 +436,10 @@ class MongoFormFieldGenerator(object):
                 form=self.get_form_factory()(
                     field.field.document_type_obj,
                     extra_bases=(MixinEmbeddedFormset, ),
-                    extra_meta={'fields': tuple([f.split('.', 1)[1] for f in self.fields if f.startswith(field_name+'.')])}
+                    extra_meta={
+                        'fields': tuple([f.split('__', 1)[1] for f in self.fields if f.startswith(field_name+'__')]),
+                        'overriden_fields': tuple([(f[0].split('__', 1)[1], f[1]) for f in self.overriden_fields if f[0].startswith(field_name+'__')])
+                    }
                 ),
                 name=field_name,
                 **(self.get_base_attrs(field))
@@ -449,7 +453,10 @@ class MongoFormFieldGenerator(object):
             form=self.get_form_factory()(field.document_type_obj,
                 extra_bases=(MixinEmbeddedForm, ),
                 extra_attrs=self.get_base_attrs(field),
-                extra_meta={'fields': tuple([f.split('.', 1)[1] for f in self.fields if f.startswith(field_name+'.')])}
+                extra_meta={
+                    'fields': tuple([f.split('__', 1)[1] for f in self.fields if f.startswith(field_name+'__')]),
+                    'overriden_fields': tuple([(f[0].split('__', 1)[1], f[1]) for f in self.overriden_fields if f[0].startswith(field_name+'__')])
+                }
             ),
             name=field_name,
             **(self.get_base_attrs(field))
