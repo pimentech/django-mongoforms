@@ -437,9 +437,9 @@ class MongoFormFieldGenerator(object):
                     field.field.document_type_obj,
                     extra_bases=(MixinEmbeddedFormset, ),
                     extra_meta={
-                        'fields': tuple([f.split('__', 1)[1] for f in self.fields if f.startswith(field_name+'__')]),
-                        'overriden_fields': tuple([(f[0].split('__', 1)[1], f[1]) for f in self.overriden_fields if f[0].startswith(field_name+'__')])
-                    }
+                        'fields': tuple([f.split('__', 1)[1] for f in self.fields if f.startswith(field_name+'__')])
+                    },
+                    extra_attrs=dict([(f[0].split('__', 1)[1], f[1]) for f in self.overriden_fields if f[0].startswith(field_name+'__')])
                 ),
                 name=field_name,
                 **(self.get_base_attrs(field))
@@ -449,14 +449,15 @@ class MongoFormFieldGenerator(object):
 
     def generate_embeddeddocumentfield(self, field_name, field):
         #from forms import mongoform_factory
+        extra_attrs = self.get_base_attrs(field)
+        extra_attrs.update(dict([(f[0].split('__', 1)[1], f[1]) for f in self.overriden_fields if f[0].startswith(field_name+'__')]))
         return FormField(
             form=self.get_form_factory()(field.document_type_obj,
                 extra_bases=(MixinEmbeddedForm, ),
-                extra_attrs=self.get_base_attrs(field),
+                extra_attrs=extra_attrs,
                 extra_meta={
-                    'fields': tuple([f.split('__', 1)[1] for f in self.fields if f.startswith(field_name+'__')]),
-                    'overriden_fields': tuple([(f[0].split('__', 1)[1], f[1]) for f in self.overriden_fields if f[0].startswith(field_name+'__')])
-                }
+                    'fields': tuple([f.split('__', 1)[1] for f in self.fields if f.startswith(field_name+'__')])
+                },
             ),
             name=field_name,
             **(self.get_base_attrs(field))

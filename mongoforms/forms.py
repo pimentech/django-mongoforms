@@ -23,7 +23,8 @@ class MongoFormMetaClass(type):
                 fields = base.base_fields.items() + fields
 
         # add the fields as "our" base fields
-        attrs['base_fields'] = SortedDict(fields)
+        # discards fields specified for embeddeddocuments
+        attrs['base_fields'] = SortedDict([f for f in fields if '__' not in f[0]])
 
         # Meta class available?
         if 'Meta' in attrs and hasattr(attrs['Meta'], 'document') and \
@@ -34,7 +35,7 @@ class MongoFormMetaClass(type):
             formfield_generator = getattr(attrs['Meta'], 'formfield_generator', \
                 MongoFormFieldGenerator)(meta_fields, overriden_fields=fields)
 
-            overriden_fields = dict(getattr(attrs['Meta'], 'overriden_fields', []))
+            overriden_fields = dict(fields)
 
             # walk through the document fields
             for field_name, field in iter_valid_fields(attrs['Meta']):
