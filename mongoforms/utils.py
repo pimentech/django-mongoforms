@@ -4,7 +4,7 @@ from mongoengine.base import ValidationError
 from mongoengine.base.fields import ObjectIdField
 
 
-def mongoengine_validate_wrapper(old_clean, new_clean):
+def mongoengine_validate_wrapper(old_clean, new_clean, required):
     """
     A wrapper function to validate formdata against mongoengine-field
     validator and raise a proper django.forms ValidationError if there
@@ -13,6 +13,8 @@ def mongoengine_validate_wrapper(old_clean, new_clean):
 
     def inner_validate(value):
         value = old_clean(value)
+        if not required and value is None:
+            return value
         try:
             new_clean(value)
             return value

@@ -45,7 +45,7 @@ class MongoFormMetaClass(type):
                 else:
                     doc_fields[field_name] = formfield_generator.generate(field_name, field)
                 doc_fields[field_name].clean = mongoengine_validate_wrapper(
-                    doc_fields[field_name].clean, field._validate)
+                    doc_fields[field_name].clean, field._validate, field.required)
 
             # write the new document fields to base_fields
             doc_fields.update(attrs['base_fields'])
