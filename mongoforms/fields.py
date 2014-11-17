@@ -307,6 +307,8 @@ class MongoFormFieldGenerator(object):
 
     def __init__(self, fields, overriden_fields=None):
         self.fields = fields
+        if overriden_fields is None:
+            overriden_fields = []
         self.overriden_fields = overriden_fields
 
     def generate(self, field_name, field):
