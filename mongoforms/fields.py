@@ -9,6 +9,7 @@ from django.utils.encoding import smart_unicode
 from bson.errors import InvalidId
 from bson.objectid import ObjectId
 from mongoengine import StringField, EmbeddedDocumentField, ObjectIdField, IntField
+from mongoengine.base import ValidationError
 
 
 class ReferenceWidget(forms.Select):
@@ -235,10 +236,17 @@ class FormsetInput(forms.Widget):
         self._instanciate_formset(data=data)
         values = []
 
-        if self.form.is_valid():
-            for form in self.form.forms:
-                if not form.cleaned_data.get(DELETION_FIELD_NAME):
-                    values.append(self.form_cls.to_python(form.cleaned_data))
+        for index in range(0, self.form.total_form_count()):
+
+            subform_prefix = self.form.prefix + u'-' + unicode(index) + u'-'
+            cleaned_data = {}
+            for field_name, field in self.form.forms[index].fields.items():
+                value = field.widget.value_from_datadict(data, None, subform_prefix+field_name)
+                if value:
+                    cleaned_data[field_name] = value
+
+            if not cleaned_data.get(DELETION_FIELD_NAME):
+                values.append(self.form_cls.to_python(cleaned_data))
 
         return self.form_cls.format_values(values)
 
@@ -250,6 +258,15 @@ class FormsetField(forms.Field):
 
         super(FormsetField, self).__init__(required=required, label=label,
                                            initial=initial, help_text=help_text)
+
+    def clean(self, value):
+        for item in value:
+            try:
+                item.validate()
+            except ValidationError, e:
+                raise forms.ValidationError(e)
+
+        return value
 
 
 class FormInput(forms.Widget):

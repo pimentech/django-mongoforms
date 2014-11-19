@@ -16,12 +16,12 @@ def mongoengine_validate_wrapper(old_clean, new_clean, required):
     def inner_validate(value):
         value = old_clean(value)
 
-        if not issubclass(old_clean.im_class, (FormsetField, FormField)):
-            if not required and value in EMPTY_VALUES:
-                value = new_clean.im_self.default
-                if callable(value):
-                    value = value()
-                return value
+        if not required and value in EMPTY_VALUES:
+            value = new_clean.im_self.default
+            if callable(value):
+                value = value()
+            return value
+
         try:
             new_clean(value)
             return value
