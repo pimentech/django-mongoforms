@@ -139,7 +139,6 @@ class FormsetInput(forms.Widget):
         self.name = name
         self.formset = formset_factory(self.form_cls, extra=0, can_delete=True)
 
-
     def _instanciate_formset(self, data=None, initial=None):
         initial = self.form_cls.format_initial(initial)
         self.form = self.formset(data, initial=initial, prefix=self.name)
