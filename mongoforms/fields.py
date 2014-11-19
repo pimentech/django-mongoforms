@@ -92,7 +92,10 @@ class DictForm(forms.Form):
 
     @classmethod
     def to_python(cls, cleaned_data):
-        return {cleaned_data['key']: cleaned_data['value']}
+        try:
+            return {cleaned_data['key']: cleaned_data['value']}
+        except KeyError:
+            return {}
 
     @classmethod
     def format_values(cls, datas):
