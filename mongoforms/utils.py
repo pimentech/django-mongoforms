@@ -4,7 +4,9 @@ from django.core.validators import EMPTY_VALUES
 from mongoengine.base import ValidationError
 from mongoengine.base.fields import ObjectIdField
 
-from mongoforms.fields import FormsetField, FormField
+from bson.son import SON
+from UserDict import UserDict
+
 
 def mongoengine_validate_wrapper(old_clean, new_clean, required):
     """
@@ -55,3 +57,24 @@ def iter_valid_fields(meta):
             if field_name not in meta_exclude:
                 field = meta.document._fields.get(field_name)
                 yield (field_name, field)
+
+def to_dict(val):
+    if isinstance(val, list):
+        return [to_dict(item) for item in val]
+    elif isinstance(val, SON):
+        return to_dict(dict(val))
+    elif isinstance(val, UserDict):
+        o = {}
+        for k, v in val.items():
+            o[k] = to_dict(v)
+        return o
+    else:
+        return val
+
+def mongo_to_dict(document):
+    obj = {}
+    for name, val in dict(document.to_mongo()).items():
+        obj[name] = to_dict(val)
+
+    return obj
+

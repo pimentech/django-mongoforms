@@ -9,6 +9,7 @@ from django.utils.encoding import smart_unicode
 from bson.errors import InvalidId
 from bson.objectid import ObjectId
 from mongoengine import StringField, EmbeddedDocumentField, ObjectIdField, IntField
+from mongoforms.utils import mongo_to_dict
 
 
 class ReferenceWidget(forms.Select):
@@ -103,29 +104,6 @@ class DictForm(forms.Form):
         for dico in datas:
             d.update(dico)
         return d
-
-
-from bson.son import SON
-from UserDict import UserDict
-def to_dict(val):
-    if isinstance(val, list):
-        return [to_dict(item) for item in val]
-    elif isinstance(val, SON):
-        return to_dict(dict(val))
-    elif isinstance(val, UserDict):
-        o = {}
-        for k, v in val.items():
-            o[k] = to_dict(v)
-        return o
-    else:
-        return val
-
-def mongo_to_dict(document):
-    obj = {}
-    for name, val in dict(document.to_mongo()).items():
-        obj[name] = to_dict(val)
-
-    return obj
 
 
 class MixinEmbeddedForm(object):
