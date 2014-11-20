@@ -2,14 +2,13 @@
 
 from django import forms
 from django.conf import settings
-from django.forms.formsets import (formset_factory, TOTAL_FORM_COUNT,
-                                   DELETION_FIELD_NAME)
+from django.forms.formsets import (formset_factory, TOTAL_FORM_COUNT, INITIAL_FORM_COUNT,
+                                MAX_NUM_FORM_COUNT, DEFAULT_MAX_NUM, DELETION_FIELD_NAME)
 from django.template import Context, Template
 from django.utils.encoding import smart_unicode
 from bson.errors import InvalidId
 from bson.objectid import ObjectId
 from mongoengine import StringField, EmbeddedDocumentField, ObjectIdField, IntField
-from mongoengine.base import ValidationError
 
 
 class ReferenceWidget(forms.Select):
@@ -105,12 +104,36 @@ class DictForm(forms.Form):
             d.update(dico)
         return d
 
+
+from bson.son import SON
+from UserDict import UserDict
+def to_dict(val):
+    if isinstance(val, list):
+        return [to_dict(item) for item in val]
+    elif isinstance(val, SON):
+        return to_dict(dict(val))
+    elif isinstance(val, UserDict):
+        o = {}
+        for k, v in val.items():
+            o[k] = to_dict(v)
+        return o
+    else:
+        return val
+
+def mongo_to_dict(document):
+    obj = {}
+    for name, val in dict(document.to_mongo()).items():
+        obj[name] = to_dict(val)
+
+    return obj
+
+
 class MixinEmbeddedForm(object):
     @classmethod
     def format_initial(cls, initial):
         if initial:
             try:
-                return initial._data
+                return mongo_to_dict(initial)
             except AttributeError:
                 return initial
 
@@ -129,7 +152,7 @@ class MixinEmbeddedFormset(MixinEmbeddedForm):
     def format_initial(cls, initial):
         if initial:
             try:
-                return [d._data for d in initial]
+                return [mongo_to_dict(d) for d in initial]
             except AttributeError:
                 return initial
 
@@ -166,7 +189,7 @@ class FormsetInput(forms.Widget):
             var num = $('#id_'+str_id+'-%s').val();
             $('#id_'+str_id+'-%s').val(parseInt(num)+1);
 
-            var html = $(src_form).html().replace(/__prefix__/g, ''+num);
+            var html = $(src_form).html().replace(/%s-__prefix__/g, '%s-'+num);
             $('<li class="list-group-item">'+html+'</li>').appendTo($(append_to));
             return false;
           }
@@ -178,6 +201,7 @@ class FormsetInput(forms.Widget):
           });
         </script>
         """ % (self.name, self.name, name_as_funcname, TOTAL_FORM_COUNT, TOTAL_FORM_COUNT,
+               self.name.split('__prefix__-')[-1], self.name.split('__prefix__-')[-1],
                self.name, name_as_funcname, self.name, self.name, self.name)
         empty_form = '<div id="empty_%s" style="display: none;">' \
                      '<li><ul>%s</ul></li></div>' % \
@@ -204,7 +228,7 @@ class FormsetInput(forms.Widget):
             var num = $('#id_'+str_id+'-%s').val();
             $('#id_'+str_id+'-%s').val(parseInt(num)+1);
 
-            var html = $(src_form).html().replace(/__prefix__/g, ''+num);
+            var html = $(src_form).html().replace(/%s-__prefix__/g, '%s-'+num);
             $('<li class="list-group-item">'+html+'</li>').appendTo($(append_to));
             return false;
           }
@@ -216,6 +240,7 @@ class FormsetInput(forms.Widget):
           });
         </script>
         """ % (name_as_funcname, TOTAL_FORM_COUNT, TOTAL_FORM_COUNT,
+               self.name.split('__prefix__-')[-1], self.name.split('__prefix__-')[-1],
                self.name, name_as_funcname, self.name, self.name, self.name)
         t = Template('{% load bootstrap3 %}'+
             '<div id="empty_%s" style="display: none;">'% self.name +
@@ -255,9 +280,32 @@ class FormsetField(forms.Field):
     def __init__(self, form=None, name=None, required=True, widget=None,
                  label=None, initial=None, instance=None, help_text=None):
         self.widget = FormsetInput(form=form, name=name)
+        self.form_cls = form
 
         super(FormsetField, self).__init__(required=required, label=label,
                                            initial=initial, help_text=help_text)
+
+    def clean(self, value):
+        datas = self.form_cls.format_initial(value)
+        if datas:
+            index = 1
+            for data in datas:
+                for field_name, field in data.items():
+                    if isinstance(field, list):
+                        management_data = {
+                            field_name + '-' + TOTAL_FORM_COUNT: len(field),
+                            field_name + '-' + INITIAL_FORM_COUNT: 0,
+                            field_name + '-' + MAX_NUM_FORM_COUNT: DEFAULT_MAX_NUM
+                        }
+                        data.update(management_data)
+                        for index, obj in enumerate(field):
+                            for k, v in obj.items():
+                                data[field_name + '-' + str(index) +'-' + k] = v
+                f = self.form_cls(data)
+                if not f.is_valid():
+                    raise forms.ValidationError(['%s %s : %s' % (field_name, index, errors[0]) for field_name, errors in f.errors.items()])
+                index += 1
+        return value
 
 
 class FormInput(forms.Widget):
