@@ -259,15 +259,6 @@ class FormsetField(forms.Field):
         super(FormsetField, self).__init__(required=required, label=label,
                                            initial=initial, help_text=help_text)
 
-    def clean(self, value):
-        for item in value:
-            try:
-                item.validate()
-            except ValidationError, e:
-                raise forms.ValidationError(e)
-
-        return value
-
 
 class FormInput(forms.Widget):
     def __init__(self, form=None, name='', attrs=None):
@@ -304,10 +295,15 @@ class FormInput(forms.Widget):
         of this widget. Returns None if it's not provided.
         """
         self._instanciate_form(data=data)
-        values = None
 
-        if self.form.is_valid():
-            values = self.form_cls.to_python(self.form.cleaned_data)
+        subform_prefix = self.form.prefix + u'-'
+        cleaned_data = {}
+        for field_name, field in self.form.fields.items():
+            value = field.widget.value_from_datadict(data, None, subform_prefix+field_name)
+            if value:
+                cleaned_data[field_name] = value
+
+        values = self.form_cls.to_python(cleaned_data)
 
         return self.form_cls.format_values(values)
 
