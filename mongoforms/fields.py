@@ -2,13 +2,14 @@
 
 from django import forms
 from django.conf import settings
-from django.forms.formsets import (formset_factory, TOTAL_FORM_COUNT, INITIAL_FORM_COUNT,
+from django.forms.formsets import (formset_factory, BaseFormSet, TOTAL_FORM_COUNT, INITIAL_FORM_COUNT,
                                 MAX_NUM_FORM_COUNT, DEFAULT_MAX_NUM, DELETION_FIELD_NAME)
+from django.forms.util import ErrorList
 from django.template import Context, Template
 from django.utils.encoding import smart_unicode
 from bson.errors import InvalidId
 from bson.objectid import ObjectId
-from mongoengine import StringField, EmbeddedDocumentField, ObjectIdField, IntField
+from mongoengine import StringField, EmbeddedDocumentField, ObjectIdField, IntField, ReferenceField as Mongoengine_ReferenceField
 from mongoforms.utils import mongo_to_dict
 
 
@@ -82,6 +83,20 @@ class StringForm(forms.Form):
         return datas
 
 
+class BaseReferenceForm(StringForm):
+
+    @classmethod
+    def format_initial(cls, initial):
+        if initial:
+            return [{'da_string': i.id} for i in initial if i]
+
+    @classmethod
+    def to_python(cls, cleaned_data):
+        doc_id = cleaned_data.get('da_string')
+        if doc_id:
+            return cls.document.objects.get(id=doc_id)
+
+
 class DictForm(forms.Form):
     key = forms.CharField(required=True)
     value = forms.CharField(required=True)
@@ -134,19 +149,32 @@ class MixinEmbeddedFormset(MixinEmbeddedForm):
             except AttributeError:
                 return initial
 
+class MongoFormFormSet(BaseFormSet):
+    def __init__(self, data=None, files=None, auto_id='id_%s', prefix=None,
+                 initial=None, error_class=ErrorList, form_attrs=None):
+        self.form_attrs = form_attrs or {}
+        super(MongoFormFormSet, self).__init__(data=data, files=files,
+            auto_id=auto_id, prefix=prefix, initial=initial, error_class=error_class)
+
+    def _construct_forms(self):
+        # instantiate all the forms and put them in self.forms
+        self.forms = []
+        for i in xrange(min(self.total_form_count(), self.absolute_max)):
+            self.forms.append(self._construct_form(i, **self.form_attrs))
 
 class FormsetInput(forms.Widget):
 
-    def __init__(self, form=None, name='', attrs=None):
+    def __init__(self, form=None, form_attrs=None, name='', attrs=None):
         super(FormsetInput, self).__init__(attrs=attrs)
         self.form = None
         self.form_cls = form
+        self.form_attrs = form_attrs or {}
         self.name = name
-        self.formset = formset_factory(self.form_cls, extra=0, can_delete=True)
+        self.formset = formset_factory(self.form_cls, formset=MongoFormFormSet, extra=0, can_delete=True)
 
     def _instanciate_formset(self, data=None, initial=None):
         initial = self.form_cls.format_initial(initial)
-        self.form = self.formset(data, initial=initial, prefix=self.name)
+        self.form = self.formset(data, initial=initial, prefix=self.name, form_attrs=self.form_attrs)
         if data:
             self.form.is_valid()
 
@@ -183,7 +211,7 @@ class FormsetInput(forms.Widget):
                self.name, name_as_funcname, self.name, self.name, self.name)
         empty_form = '<div id="empty_%s" style="display: none;">' \
                      '<li><ul>%s</ul></li></div>' % \
-                      (self.name, self.form.empty_form.as_ul())
+                      (self.name, self.form._get_empty_form(**self.form_attrs).as_ul())
 
         form_html = self.form.management_form.as_p()
         form_html += '<ul class="formset %s">%s</ul>' % (self.name,
@@ -223,7 +251,7 @@ class FormsetInput(forms.Widget):
         t = Template('{% load bootstrap3 %}'+
             '<div id="empty_%s" style="display: none;">'% self.name +
             '{% bootstrap_form form %}</div>' )
-        c = Context({'form': self.form.empty_form})
+        c = Context({'form': self.form._get_empty_form(**self.form_attrs)})
         empty_form = t.render(c)
 
         form_html = self.form.management_form.as_p()
@@ -256,9 +284,10 @@ class FormsetInput(forms.Widget):
 
 class FormsetField(forms.Field):
     def __init__(self, form=None, name=None, required=True, widget=None,
-                 label=None, initial=None, instance=None, help_text=None):
-        self.widget = FormsetInput(form=form, name=name)
+                 label=None, initial=None, instance=None, help_text=None, form_attrs=None):
         self.form_cls = form
+        self.form_attrs = form_attrs or {}
+        self.widget = FormsetInput(form=form, form_attrs=form_attrs, name=name)
 
         super(FormsetField, self).__init__(required=required, label=label,
                                            initial=initial, help_text=help_text)
@@ -279,7 +308,7 @@ class FormsetField(forms.Field):
                         for index, obj in enumerate(field):
                             for k, v in obj.items():
                                 data[field_name + '-' + str(index) +'-' + k] = v
-                f = self.form_cls(data)
+                f = self.form_cls(data, **self.form_attrs)
                 if not f.is_valid():
                     raise forms.ValidationError(['%s %s : %s' % (field_name, index, errors[0]) for field_name, errors in f.errors.items()])
                 index += 1
@@ -295,7 +324,7 @@ class FormInput(forms.Widget):
 
     def _instanciate_form(self, data=None, initial=None):
         initial = self.form_cls.format_initial(initial)
-        self.form = self.form_cls(data, initial=initial, prefix=self.name)
+        self.form = self.form_cls(data, initial=initial, prefix=self.name, **self.form_attrs)
         if data:
             self.form.is_valid()
 
@@ -469,6 +498,13 @@ class MongoFormFieldGenerator(object):
         if isinstance(field.field, (StringField, IntField)):
             return FormsetField(
                 form=StringForm,
+                name=field_name,
+                **(self.get_base_attrs(field))
+            )
+        if isinstance(field.field, Mongoengine_ReferenceField):
+            return FormsetField(
+                form=type(field.field.document_type.__name__+ 'ReferenceForm', (BaseReferenceForm,), {'da_string': ReferenceField(field.field.document_type.objects, label=" ", required=False), 'document': field.field.document_type})
+,
                 name=field_name,
                 **(self.get_base_attrs(field))
             )
