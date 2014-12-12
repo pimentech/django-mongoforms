@@ -324,7 +324,7 @@ class FormInput(forms.Widget):
 
     def _instanciate_form(self, data=None, initial=None):
         initial = self.form_cls.format_initial(initial)
-        self.form = self.form_cls(data, initial=initial, prefix=self.name, **self.form_attrs)
+        self.form = self.form_cls(data, initial=initial, prefix=self.name)
         if data:
             self.form.is_valid()
 
