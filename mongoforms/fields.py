@@ -172,7 +172,15 @@ class FormsetInput(forms.Widget):
         self.name = name
         self.formset = formset_factory(self.form_cls, formset=MongoFormFormSet, extra=0, can_delete=True)
 
-    def _instanciate_formset(self, data=None, initial=None):
+    def _instanciate_formset(self, data=None, initial=None, readonly=False):
+        if readonly:
+            self.formset.can_delete = False
+            for field_name in self.form_cls.base_fields.keys():
+                self.form_cls.base_fields[field_name].widget.attrs['readonly'] = "readonly"
+                if self.form_cls.base_fields[field_name].widget.attrs.get('class'):
+                    self.form_cls.base_fields[field_name].widget.attrs['class'] += " disabled"
+                else:
+                    self.form_cls.base_fields[field_name].widget.attrs['class'] = "disabled"
         initial = self.form_cls.format_initial(initial)
         self.form = self.formset(data, initial=initial, prefix=self.name, form_attrs=self.form_attrs)
         if data:
@@ -186,7 +194,14 @@ class FormsetInput(forms.Widget):
 
     def render_vanilla(self, name, value, attrs=None):
         if not self.form:
-            self._instanciate_formset(initial=value)
+            self._instanciate_formset(initial=value, readonly=attrs.get('readonly'))
+
+        form_html = self.form.management_form.as_p()
+        form_html += '<ul class="formset %s">%s</ul>' % (self.name,
+         ''.join(['<li><ul>%s</ul></li>' % f.as_ul() for f in self.form.forms]))
+
+        if attrs.get('readonly'):
+            return form_html
         name_as_funcname = self.name.replace('-', '_')
         management_javascript = """
         <a href="#add_%s" id="add_%s">Add an entry</a>
@@ -213,15 +228,18 @@ class FormsetInput(forms.Widget):
                      '<li><ul>%s</ul></li></div>' % \
                       (self.name, self.form._get_empty_form(**self.form_attrs).as_ul())
 
-        form_html = self.form.management_form.as_p()
-        form_html += '<ul class="formset %s">%s</ul>' % (self.name,
-         ''.join(['<li><ul>%s</ul></li>' % f.as_ul() for f in self.form.forms]))
-
         return form_html + empty_form + management_javascript
 
     def render_bootstrap3(self, name, value, attrs=None):
         if not self.form:
-            self._instanciate_formset(initial=value)
+            self._instanciate_formset(initial=value, readonly=attrs.get('readonly'))
+
+        form_html = self.form.management_form.as_p()
+        form_html += '<ul class="list-group formset %s">%s</ul>' % (self.name,
+            Template('{% load bootstrap3 %}{% for f in form.forms %}<li class="list-group-item">{% bootstrap_form f %}</li>{% endfor %}').render(Context({'form': self.form})))
+        if attrs.get('readonly'):
+            return form_html
+
         name_as_funcname = self.name.replace('-', '_')
         button_plus_one = """
         <a class="btn btn-primary btn-xs" href="#add_%s" id="add_%s" title="Add an entry">
@@ -253,10 +271,6 @@ class FormsetInput(forms.Widget):
             '{% bootstrap_form form %}</div>' )
         c = Context({'form': self.form._get_empty_form(**self.form_attrs)})
         empty_form = t.render(c)
-
-        form_html = self.form.management_form.as_p()
-        form_html += '<ul class="list-group formset %s">%s</ul>' % (self.name,
-            Template('{% load bootstrap3 %}{% for f in form.forms %}<li class="list-group-item">{% bootstrap_form f %}</li>{% endfor %}').render(Context({'form': self.form})))
         return button_plus_one + management_javascript + form_html + empty_form + button_plus_one
 
     def value_from_datadict(self, data, files, name):
@@ -322,7 +336,14 @@ class FormInput(forms.Widget):
         self.form_cls = form
         self.name = name
 
-    def _instanciate_form(self, data=None, initial=None):
+    def _instanciate_form(self, data=None, initial=None, readonly=False):
+        if readonly:
+            for field_name in self.form_cls.base_fields.keys():
+                self.form_cls.base_fields[field_name].widget.attrs['readonly'] = "readonly"
+                if self.form_cls.base_fields[field_name].widget.attrs.get('class'):
+                    self.form_cls.base_fields[field_name].widget.attrs['class'] += " disabled"
+                else:
+                    self.form_cls.base_fields[field_name].widget.attrs['class'] = "disabled"
         initial = self.form_cls.format_initial(initial)
         self.form = self.form_cls(data, initial=initial, prefix=self.name)
         if data:
@@ -336,12 +357,12 @@ class FormInput(forms.Widget):
 
     def render_vanilla(self, name, value, attrs=None):
         if not self.form:
-            self._instanciate_form(initial=value)
+            self._instanciate_form(initial=value, readonly=attrs.get('readonly'))
         return self.form.as_ul()
 
     def render_bootstrap3(self, name, value, attrs=None):
         if not self.form:
-            self._instanciate_form(initial=value)
+            self._instanciate_form(initial=value, readonly=attrs.get('readonly'))
         return Template('{% load bootstrap3 %}{% bootstrap_form form %}</li>').render(Context({'form': self.form}))
 
     def value_from_datadict(self, data, files, name):
