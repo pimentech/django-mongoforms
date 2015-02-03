@@ -173,16 +173,17 @@ class FormsetInput(forms.Widget):
         self.formset = formset_factory(self.form_cls, formset=MongoFormFormSet, extra=0, can_delete=True)
 
     def _instanciate_formset(self, data=None, initial=None, readonly=False):
-        if readonly:
-            self.formset.can_delete = False
-            for field_name in self.form_cls.base_fields.keys():
-                self.form_cls.base_fields[field_name].widget.attrs['readonly'] = "readonly"
-                if self.form_cls.base_fields[field_name].widget.attrs.get('class'):
-                    self.form_cls.base_fields[field_name].widget.attrs['class'] += " disabled"
-                else:
-                    self.form_cls.base_fields[field_name].widget.attrs['class'] = "disabled"
         initial = self.form_cls.format_initial(initial)
         self.form = self.formset(data, initial=initial, prefix=self.name, form_attrs=self.form_attrs)
+        if readonly:
+            self.formset.can_delete = False
+            for form in self.form.forms:
+                for field_name in form.fields.keys():
+                    form.fields[field_name].widget.attrs['readonly'] = "readonly"
+                    if form.fields[field_name].widget.attrs.get('class'):
+                        form.fields[field_name].widget.attrs['class'] += " disabled"
+                    else:
+                        form.fields[field_name].widget.attrs['class'] = "disabled"
         if data:
             self.form.is_valid()
 
@@ -337,15 +338,15 @@ class FormInput(forms.Widget):
         self.name = name
 
     def _instanciate_form(self, data=None, initial=None, readonly=False):
-        if readonly:
-            for field_name in self.form_cls.base_fields.keys():
-                self.form_cls.base_fields[field_name].widget.attrs['readonly'] = "readonly"
-                if self.form_cls.base_fields[field_name].widget.attrs.get('class'):
-                    self.form_cls.base_fields[field_name].widget.attrs['class'] += " disabled"
-                else:
-                    self.form_cls.base_fields[field_name].widget.attrs['class'] = "disabled"
         initial = self.form_cls.format_initial(initial)
         self.form = self.form_cls(data, initial=initial, prefix=self.name)
+        if readonly:
+            for field_name in self.form.fields.keys():
+                self.form.fields[field_name].widget.attrs['readonly'] = "readonly"
+                if self.form.fields[field_name].widget.attrs.get('class'):
+                    self.form.fields[field_name].widget.attrs['class'] += " disabled"
+                else:
+                    self.form.fields[field_name].widget.attrs['class'] = "disabled"
         if data:
             self.form.is_valid()
 
