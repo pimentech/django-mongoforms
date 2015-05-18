@@ -39,6 +39,8 @@ class MongoFormMetaClass(type):
 
             # walk through the document fields
             for field_name, field in iter_valid_fields(attrs['Meta']):
+                if field_name == '_cls':
+                    continue
                 # add field and override clean method to respect mongoengine-validator
                 if field_name in overriden_fields:
                     doc_fields[field_name] = overriden_fields[field_name]
