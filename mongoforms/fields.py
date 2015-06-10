@@ -298,11 +298,12 @@ class FormsetInput(forms.Widget):
 
 
 class FormsetField(forms.Field):
+    widget_cls = FormsetInput
     def __init__(self, form=None, name=None, required=True, widget=None,
                  label=None, initial=None, instance=None, help_text=None, form_attrs=None):
         self.form_cls = form
         self.form_attrs = form_attrs or {}
-        self.widget = FormsetInput(form=form, form_attrs=form_attrs, name=name)
+        self.widget = self.widget_cls(form=form, form_attrs=form_attrs, name=name, **(self.get_widget_extra_args()))
 
         super(FormsetField, self).__init__(required=required, label=label,
                                            initial=initial, help_text=help_text)
@@ -328,6 +329,9 @@ class FormsetField(forms.Field):
                     raise forms.ValidationError(['%s %s : %s' % (field_name, index, errors[0]) for field_name, errors in f.errors.items()])
                 index += 1
         return value
+
+    def get_widget_extra_args(self):
+        return {}
 
 
 class FormInput(forms.Widget):
