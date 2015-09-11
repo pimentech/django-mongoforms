@@ -3,10 +3,13 @@
 from django import forms
 from django.conf import settings
 from django.forms.formsets import (formset_factory, BaseFormSet, TOTAL_FORM_COUNT, INITIAL_FORM_COUNT,
-                                MAX_NUM_FORM_COUNT, DEFAULT_MAX_NUM, DELETION_FIELD_NAME)
+                                MAX_NUM_FORM_COUNT, DEFAULT_MAX_NUM, DELETION_FIELD_NAME, ORDERING_FIELD_NAME)
+from django.forms.fields import IntegerField, BooleanField
 from django.forms.util import ErrorList
+from django.forms.widgets import HiddenInput
 from django.template import Context, Template
 from django.utils.encoding import smart_unicode
+from django.utils.translation import ugettext as _
 from bson.errors import InvalidId
 from bson.objectid import ObjectId
 from mongoengine import StringField, EmbeddedDocumentField, ObjectIdField, IntField, ReferenceField as Mongoengine_ReferenceField
@@ -162,6 +165,18 @@ class MongoFormFormSet(BaseFormSet):
         for i in xrange(min(self.total_form_count(), self.absolute_max)):
             self.forms.append(self._construct_form(i, **self.form_attrs))
 
+    def add_fields(self, form, index):
+        """A hook for adding extra fields on to each form instance."""
+        if self.can_order:
+            # Only pre-fill the ordering field for initial forms.
+            if index is not None and index < self.initial_form_count():
+                form.fields[ORDERING_FIELD_NAME] = IntegerField(label=_(u'Order'), initial=index+1, required=False, widget=forms.HiddenInput())
+            else:
+                form.fields[ORDERING_FIELD_NAME] = IntegerField(label=_(u'Order'), required=False, widget=forms.HiddenInput())
+        if self.can_delete:
+            form.fields[DELETION_FIELD_NAME] = BooleanField(label=_(u'Delete'), required=False)
+
+
 class FormsetInput(forms.Widget):
 
     def __init__(self, form=None, form_attrs=None, name='', attrs=None):
@@ -170,7 +185,7 @@ class FormsetInput(forms.Widget):
         self.form_cls = form
         self.form_attrs = form_attrs or {}
         self.name = name
-        self.formset = formset_factory(self.form_cls, formset=MongoFormFormSet, extra=0, can_delete=True)
+        self.formset = formset_factory(self.form_cls, formset=MongoFormFormSet, extra=0, can_delete=True, can_order=True)
 
     def _instanciate_formset(self, data=None, initial=None, readonly=False):
         initial = self.form_cls.format_initial(initial)
@@ -236,8 +251,8 @@ class FormsetInput(forms.Widget):
             self._instanciate_formset(initial=value, readonly=attrs.get('readonly'))
 
         form_html = self.form.management_form.as_p()
-        form_html += '<ul class="list-group formset %s">%s</ul>' % (self.name,
-            Template('{% load bootstrap3 %}{% for f in form.forms %}<li class="list-group-item">{% bootstrap_form f %}</li>{% endfor %}').render(Context({'form': self.form})))
+        form_html += '<ul class="list-group formset %s sortable">%s</ul>' % (self.name,
+            Template('{% load bootstrap3 %}{% for f in form.forms %}<li id="{{ name }}-{{ forloop.counter0 }}" class="list-group-item">{% bootstrap_form f %}</li>{% endfor %}').render(Context({'form': self.form, 'name': self.attrs['id']})))
         if attrs.get('readonly'):
             return form_html
 
@@ -281,6 +296,7 @@ class FormsetInput(forms.Widget):
         """
         self._instanciate_formset(data=data)
         values = []
+        ordering = []
 
         for index in range(0, self.form.total_form_count()):
 
@@ -291,8 +307,15 @@ class FormsetInput(forms.Widget):
                 if value:
                     cleaned_data[field_name] = value
 
+            if self.formset.can_order and ORDERING_FIELD_NAME in cleaned_data:
+                ordering.append(int(cleaned_data.pop(ORDERING_FIELD_NAME)))
+
             if not cleaned_data.get(DELETION_FIELD_NAME):
                 values.append(self.form_cls.to_python(cleaned_data))
+
+        # TODO: fixer le pb avec ordering qui ne contient pas les elements nouvellement créés
+        if ordering:
+            values = sorted(values, cmp=lambda v1, v2: ordering[values.index(v1)] - ordering[values.index(v2)])
 
         return self.form_cls.format_values(values)
 
@@ -321,9 +344,15 @@ class FormsetField(forms.Field):
                             field_name + '-' + MAX_NUM_FORM_COUNT: DEFAULT_MAX_NUM
                         }
                         data.update(management_data)
-                        for index, obj in enumerate(field):
+                        for idx, obj in enumerate(field):
                             for k, v in obj.items():
-                                data[field_name + '-' + str(index) +'-' + k] = v
+                                data[field_name + '-' + str(idx) +'-' + k] = v
+                    elif isinstance(field, dict):
+                        data.update({
+                            field_name + '-' + TOTAL_FORM_COUNT: len(field.keys()),
+                            field_name + '-' + INITIAL_FORM_COUNT: 0,
+                            field_name + '-' + MAX_NUM_FORM_COUNT: DEFAULT_MAX_NUM
+                        })
                 f = self.form_cls(data, **self.form_attrs)
                 if not f.is_valid():
                     raise forms.ValidationError(['%s %s : %s' % (field_name, index, errors[0]) for field_name, errors in f.errors.items()])
