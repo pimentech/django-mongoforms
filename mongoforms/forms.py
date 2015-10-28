@@ -33,7 +33,7 @@ class MongoFormMetaClass(type):
 
             meta_fields = list(getattr(attrs['Meta'], 'fields', []))
             formfield_generator = getattr(attrs['Meta'], 'formfield_generator', \
-                MongoFormFieldGenerator)(meta_fields, overriden_fields=fields)
+                MongoFormFieldGenerator)(meta_fields, overriden_fields=fields, exclude=getattr(attrs['Meta'], 'exclude', ()))
 
             overriden_fields = dict(fields)
 

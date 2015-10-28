@@ -430,10 +430,11 @@ class FormField(forms.Field):
 class MongoFormFieldGenerator(object):
     """This class generates Django form-fields for mongoengine-fields."""
 
-    def __init__(self, fields, overriden_fields=None):
+    def __init__(self, fields, overriden_fields=None, exclude=None):
         self.fields = fields
         if overriden_fields is None:
             overriden_fields = []
+        self.exclude = exclude
         self.overriden_fields = overriden_fields
 
     def generate(self, field_name, field):
@@ -572,6 +573,7 @@ class MongoFormFieldGenerator(object):
                     extra_bases=(MixinEmbeddedFormset, ),
                     extra_meta={
                         'fields': tuple([f.split('__', 1)[1] for f in self.fields if f.startswith(field_name+'__')]),
+                        'exclude': tuple([f.split('__', 1)[1] for f in self.exclude if f.startswith(field_name+'__')]),
                         'formfield_generator': self.__class__
                     },
                     extra_attrs=dict([(f[0].split('__', 1)[1], f[1]) for f in self.overriden_fields if f[0].startswith(field_name+'__')])
@@ -592,6 +594,7 @@ class MongoFormFieldGenerator(object):
                 extra_attrs=extra_attrs,
                 extra_meta={
                     'fields': tuple([f.split('__', 1)[1] for f in self.fields if f.startswith(field_name+'__')]),
+                    'exclude': tuple([f.split('__', 1)[1] for f in self.exclude if f.startswith(field_name+'__')]),
                     'formfield_generator': self.__class__
                 },
             ),
