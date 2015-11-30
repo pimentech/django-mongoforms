@@ -252,7 +252,7 @@ class FormsetInput(forms.Widget):
 
         form_html = self.form.management_form.as_p()
         form_html += '<ul class="list-group formset %s">%s</ul>' % (self.name,
-            Template('{% load bootstrap3 %}{% for f in form.forms %}<li id="{{ name }}-{{ forloop.counter0 }}" class="list-group-item">{% bootstrap_form f %}</li>{% endfor %}').render(Context({'form': self.form, 'name': self.attrs['id']})))
+            Template('{% load bootstrap3 %}{% for f in form.forms %}<li id="{{ name }}-{{ forloop.counter0 }}" class="list-group-item anchor">{% bootstrap_form f %}</li>{% endfor %}').render(Context({'form': self.form, 'name': self.attrs['id']})))
         if attrs.get('readonly'):
             return form_html
 
@@ -269,7 +269,7 @@ class FormsetInput(forms.Widget):
             $('#id_'+str_id+'-%s').val(parseInt(num)+1);
 
             var html = $(src_form).html().replace(/%s-__prefix__/g, '%s-'+num);
-            $('<li class="list-group-item">'+html+'</li>').appendTo($(append_to));
+            $('<li class="list-group-item anchor">'+html+'</li>').appendTo($(append_to));
             return false;
           }
           $(document).ready(function(){
