@@ -228,6 +228,9 @@ class FormsetInput(forms.Widget):
 
             var html = $(src_form).html().replace(/%s-__prefix__/g, '%s-'+num);
             $('<li class="list-group-item">'+html+'</li>').appendTo($(append_to));
+            if($('input#id_%s-'+num+'-%s').length>0){
+              $('input#id_%s-'+num+'-%s').val(num);
+            }
             return false;
           }
           $(document).ready(function(){
@@ -239,6 +242,7 @@ class FormsetInput(forms.Widget):
         </script>
         """ % (self.name, self.name, name_as_funcname, TOTAL_FORM_COUNT, TOTAL_FORM_COUNT,
                self.name.split('__prefix__-')[-1], self.name.split('__prefix__-')[-1],
+               self.name.split('__prefix__-')[-1], ORDERING_FIELD_NAME, self.name.split('__prefix__-')[-1], ORDERING_FIELD_NAME,
                self.name, name_as_funcname, self.name, self.name, self.name)
         empty_form = '<div id="empty_%s" style="display: none;">' \
                      '<li><ul>%s</ul></li></div>' % \
@@ -270,6 +274,9 @@ class FormsetInput(forms.Widget):
 
             var html = $(src_form).html().replace(/%s-__prefix__/g, '%s-'+num);
             $('<li class="list-group-item anchor">'+html+'</li>').appendTo($(append_to));
+            if($('input#id_%s-'+num+'-%s').length>0){
+              $('input#id_%s-'+num+'-%s').val(num);
+            }
             return false;
           }
           $(document).ready(function(){
@@ -281,6 +288,7 @@ class FormsetInput(forms.Widget):
         </script>
         """ % (name_as_funcname, TOTAL_FORM_COUNT, TOTAL_FORM_COUNT,
                self.name.split('__prefix__-')[-1], self.name.split('__prefix__-')[-1],
+               self.name.split('__prefix__-')[-1], ORDERING_FIELD_NAME, self.name.split('__prefix__-')[-1], ORDERING_FIELD_NAME,
                self.name, name_as_funcname, self.name, self.name, self.name)
         t = Template('{% load bootstrap3 %}'+
             '<div id="empty_%s" style="display: none;">'% self.name +
