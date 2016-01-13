@@ -256,7 +256,7 @@ class FormsetInput(forms.Widget):
 
         form_html = self.form.management_form.as_p()
         form_html += '<ul class="list-group formset %s">%s</ul>' % (self.name,
-            Template('{% load bootstrap3 %}{% for f in form.forms %}<li id="{{ name }}-{{ forloop.counter0 }}" class="list-group-item anchor">{% bootstrap_form f %}</li>{% endfor %}').render(Context({'form': self.form, 'name': self.attrs['id']})))
+            Template('{% load bootstrap3 %}{% for f in form.forms %}<li id="anchor_{{ name }}-{{ forloop.counter0 }}" class="list-group-item anchor">{% bootstrap_form f %}</li>{% endfor %}').render(Context({'form': self.form, 'name': self.attrs['id']})))
         if attrs.get('readonly'):
             return form_html
 
