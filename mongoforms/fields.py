@@ -440,6 +440,8 @@ class MongoFormFieldGenerator(object):
 
     def __init__(self, fields, overriden_fields=None, exclude=None):
         self.fields = fields
+        if exclude is None:
+            exclude = []
         if overriden_fields is None:
             overriden_fields = []
         self.exclude = exclude
