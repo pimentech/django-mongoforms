@@ -29,6 +29,7 @@ class MongoFormMetaClass(type):
         # Meta class available?
         if 'Meta' in attrs and hasattr(attrs['Meta'], 'document') and \
            issubclass(attrs['Meta'].document, BaseDocument):
+            labels = getattr(attrs['Meta'], 'labels', {})
             doc_fields = SortedDict()
 
             meta_fields = list(getattr(attrs['Meta'], 'fields', []))
@@ -48,6 +49,8 @@ class MongoFormMetaClass(type):
                     doc_fields[field_name] = formfield_generator.generate(field_name, field)
                 doc_fields[field_name].clean = mongoengine_validate_wrapper(
                     doc_fields[field_name].clean, field._validate, field.required)
+                if labels.get(field_name):
+                    doc_fields[field_name].label = labels['field_name']
 
             # write the new document fields to base_fields
             doc_fields.update(attrs['base_fields'])
