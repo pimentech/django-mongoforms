@@ -313,7 +313,7 @@ class FormsetInput(forms.Widget):
             for field_name, field in self.form.forms[index].fields.items():
                 value = field.widget.value_from_datadict(data, None, subform_prefix+field_name)
                 if value:
-                    cleaned_data[field_name] = field.clean(value)
+                    cleaned_data[field_name] = field.to_python(value)
 
             if self.formset.can_order and ORDERING_FIELD_NAME in cleaned_data:
                 ordering.append(int(cleaned_data.pop(ORDERING_FIELD_NAME)))
@@ -419,7 +419,7 @@ class FormInput(forms.Widget):
         for field_name, field in self.form.fields.items():
             value = field.widget.value_from_datadict(data, None, subform_prefix+field_name)
             if value:
-                cleaned_data[field_name] = field.clean(value)
+                cleaned_data[field_name] = field.to_python(value)
 
         values = self.form_cls.to_python(cleaned_data)
 
