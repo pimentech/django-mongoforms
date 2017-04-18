@@ -224,12 +224,15 @@ class FormsetInput(forms.Widget):
         <script type="text/javascript">
           function add_form_%s(src_form, str_id, append_to) {
             var num = $('#id_'+str_id+'-%s').val();
+            if (typeof num == 'undefined') {
+                num = 0;
+            }
             $('#id_'+str_id+'-%s').val(parseInt(num)+1);
 
             var html = $(src_form).html().replace(/%s-__prefix__/g, '%s-'+num);
             $('<li class="list-group-item">'+html+'</li>').appendTo($(append_to));
             if($('input#id_%s-'+num+'-%s').length>0){
-              $('input#id_%s-'+num+'-%s').val(num);
+              $('input#id_%s-'+num+'-%s').val(num+1);
             }
             return false;
           }
@@ -270,12 +273,15 @@ class FormsetInput(forms.Widget):
         <script type="text/javascript">
           function add_form_%s(src_form, str_id, append_to) {
             var num = $('#id_'+str_id+'-%s').val();
+            if (typeof num == 'undefined') {
+                num = 0;
+            }
             $('#id_'+str_id+'-%s').val(parseInt(num)+1);
 
             var html = $(src_form).html().replace(/%s-__prefix__/g, '%s-'+num);
             $('<li class="list-group-item anchor">'+html+'</li>').appendTo($(append_to));
             if($('input#id_%s-'+num+'-%s').length>0){
-              $('input#id_%s-'+num+'-%s').val(num);
+              $('input#id_%s-'+num+'-%s').val(num+1);
             }
             return false;
           }
@@ -312,13 +318,13 @@ class FormsetInput(forms.Widget):
             cleaned_data = {}
             for field_name, field in self.form.forms[index].fields.items():
                 value = field.widget.value_from_datadict(data, None, subform_prefix+field_name)
-                if value:
+                if value is not None:
                     cleaned_data[field_name] = field.to_python(value)
 
-            if self.formset.can_order and ORDERING_FIELD_NAME in cleaned_data:
-                ordering.append(int(cleaned_data.pop(ORDERING_FIELD_NAME)))
-
             if not cleaned_data.get(DELETION_FIELD_NAME):
+                if self.formset.can_order and ORDERING_FIELD_NAME in cleaned_data:
+                    ordering.append(int(cleaned_data.pop(ORDERING_FIELD_NAME)))
+
                 values.append(self.form_cls.to_python(cleaned_data))
 
         # TODO: fixer le pb avec ordering qui ne contient pas les elements nouvellement créés
