@@ -6,7 +6,6 @@ from django.forms.formsets import (formset_factory, BaseFormSet, TOTAL_FORM_COUN
                                 MAX_NUM_FORM_COUNT, DEFAULT_MAX_NUM, DELETION_FIELD_NAME, ORDERING_FIELD_NAME)
 from django.forms.fields import IntegerField, BooleanField
 from django.forms.util import ErrorList
-from django.forms.widgets import HiddenInput
 from django.template import Context, Template
 from django.utils.encoding import smart_unicode
 from django.utils.translation import ugettext as _
@@ -223,11 +222,8 @@ class FormsetInput(forms.Widget):
         <a href="#add_%s" id="add_%s">Add an entry</a>
         <script type="text/javascript">
           function add_form_%s(src_form, str_id, append_to) {
-            var num = $('#id_'+str_id+'-%s').val();
-            if (typeof num == 'undefined') {
-                num = 0;
-            }
-            $('#id_'+str_id+'-%s').val(parseInt(num)+1);
+            var num = parseInt($('#id_'+str_id+'-%s').val() || 0);
+            $('#id_'+str_id+'-%s').val(num+1);
 
             var html = $(src_form).html().replace(/%s-__prefix__/g, '%s-'+num);
             $('<li class="list-group-item">'+html+'</li>').appendTo($(append_to));
@@ -244,8 +240,8 @@ class FormsetInput(forms.Widget):
           });
         </script>
         """ % (self.name, self.name, name_as_funcname, TOTAL_FORM_COUNT, TOTAL_FORM_COUNT,
-               self.name.split('__prefix__-')[-1], self.name.split('__prefix__-')[-1],
-               self.name.split('__prefix__-')[-1], ORDERING_FIELD_NAME, self.name.split('__prefix__-')[-1], ORDERING_FIELD_NAME,
+               self.name, self.name,
+               self.name, ORDERING_FIELD_NAME, self.name, ORDERING_FIELD_NAME,
                self.name, name_as_funcname, self.name, self.name, self.name)
         empty_form = '<div id="empty_%s" style="display: none;">' \
                      '<li><ul>%s</ul></li></div>' % \
@@ -272,11 +268,8 @@ class FormsetInput(forms.Widget):
         management_javascript = """
         <script type="text/javascript">
           function add_form_%s(src_form, str_id, append_to) {
-            var num = $('#id_'+str_id+'-%s').val();
-            if (typeof num == 'undefined') {
-                num = 0;
-            }
-            $('#id_'+str_id+'-%s').val(parseInt(num)+1);
+            var num = parseInt($('#id_'+str_id+'-%s').val());
+            $('#id_'+str_id+'-%s').val(num+1);
 
             var html = $(src_form).html().replace(/%s-__prefix__/g, '%s-'+num);
             $('<li class="list-group-item anchor">'+html+'</li>').appendTo($(append_to));
@@ -293,8 +286,8 @@ class FormsetInput(forms.Widget):
           });
         </script>
         """ % (name_as_funcname, TOTAL_FORM_COUNT, TOTAL_FORM_COUNT,
-               self.name.split('__prefix__-')[-1], self.name.split('__prefix__-')[-1],
-               self.name.split('__prefix__-')[-1], ORDERING_FIELD_NAME, self.name.split('__prefix__-')[-1], ORDERING_FIELD_NAME,
+               self.name, self.name,
+               self.name, ORDERING_FIELD_NAME, self.name, ORDERING_FIELD_NAME,
                self.name, name_as_funcname, self.name, self.name, self.name)
         t = Template('{% load bootstrap3 %}'+
             '<div id="empty_%s" style="display: none;">'% self.name +
@@ -318,7 +311,7 @@ class FormsetInput(forms.Widget):
             cleaned_data = {}
             for field_name, field in self.form.forms[index].fields.items():
                 value = field.widget.value_from_datadict(data, None, subform_prefix+field_name)
-                if value is not None:
+                if value:
                     cleaned_data[field_name] = field.to_python(value)
 
             if not cleaned_data.get(DELETION_FIELD_NAME):
