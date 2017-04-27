@@ -351,9 +351,13 @@ class FormsetField(forms.Field):
                             field_name + '-' + MAX_NUM_FORM_COUNT: DEFAULT_MAX_NUM
                         }
                         data.update(management_data)
-                        for idx, obj in enumerate(field):
-                            for k, v in obj.items():
-                                data[field_name + '-' + str(idx) +'-' + k] = v
+                        if self.form_cls.base_fields[field_name].form_cls is StringForm:
+                            for idx, obj in enumerate(field):
+                                data[field_name + '-' + str(idx) +'-da_string'] = obj
+                        else:
+                            for idx, obj in enumerate(field):
+                                for k, v in obj.items():
+                                    data[field_name + '-' + str(idx) +'-' + k] = v
                     elif isinstance(field, dict):
                         data.update({
                             field_name + '-' + TOTAL_FORM_COUNT: len(field.keys()),
