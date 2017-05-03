@@ -463,9 +463,14 @@ class MongoFormFieldGenerator(object):
                 field.__class__.__name__)
 
     def get_base_attrs(self, field):
+        if callable(field.default):
+            default = field.default()
+        else:
+            default = field.default
+
         return {
             'required': field.required,
-            'initial': field.default,
+            'initial': default,
             'label': field.verbose_name,
             'help_text': field.help_text
         }
