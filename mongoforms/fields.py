@@ -315,13 +315,15 @@ class FormsetInput(forms.Widget):
                     cleaned_data[field_name] = field.to_python(value)
 
             if not cleaned_data.get(DELETION_FIELD_NAME):
-                if self.formset.can_order and ORDERING_FIELD_NAME in cleaned_data:
-                    ordering.append(int(cleaned_data.pop(ORDERING_FIELD_NAME)))
+                if self.formset.can_order:
+                    if ORDERING_FIELD_NAME in cleaned_data:
+                        ordering.append(int(cleaned_data.pop(ORDERING_FIELD_NAME)))
+                    else:
+                        ordering.append(999)
 
                 values.append(self.form_cls.to_python(cleaned_data))
 
-        # TODO: fixer le pb avec ordering qui ne contient pas les elements nouvellement créés
-        if ordering:
+        if ordering and len(ordering) == len(values):
             values = sorted(values, cmp=lambda v1, v2: ordering[values.index(v1)] - ordering[values.index(v2)])
 
         return self.form_cls.format_values(values)
