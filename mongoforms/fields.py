@@ -470,11 +470,14 @@ class MongoFormFieldGenerator(object):
         else:
             default = field.default
 
+        verbose_name = getattr(field, 'verbose_name', '')
+        help_text = getattr(field, 'help_text', '')
+
         return {
             'required': field.required,
             'initial': default,
-            'label': field.verbose_name,
-            'help_text': field.help_text
+            'label': verbose_name,
+            'help_text': help_text
         }
 
     def generate_stringfield(self, field_name, field):
