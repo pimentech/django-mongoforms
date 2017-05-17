@@ -1,7 +1,7 @@
 from django import forms
 from django.core.validators import EMPTY_VALUES
 
-from mongoengine.base import ValidationError
+from mongoengine.errors import ValidationError
 from mongoengine.base.fields import ObjectIdField
 
 from bson.son import SON
