@@ -470,8 +470,8 @@ class MongoFormFieldGenerator(object):
         else:
             default = field.default
 
-        verbose_name = getattr(field, 'verbose_name', '')
-        help_text = getattr(field, 'help_text', '')
+        verbose_name = getattr(field, 'verbose_name', None)
+        help_text = getattr(field, 'help_text', None)
 
         return {
             'required': field.required,
