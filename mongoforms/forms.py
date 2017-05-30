@@ -1,6 +1,13 @@
 import types
-from django import forms
-from django.utils.datastructures import SortedDict
+
+from django import forms, VERSION as django_version
+if django_version < (1, 9):
+    from django.utils.datastructures import SortedDict
+    from django.forms.util import ErrorList
+else:
+    from collections import OrderedDict as SortedDict
+    from django.forms.utils import ErrorList
+
 from mongoengine.base import BaseDocument
 from fields import MongoFormFieldGenerator, FormsetField
 from utils import mongoengine_validate_wrapper, iter_valid_fields
@@ -66,7 +73,7 @@ class MongoForm(forms.BaseForm):
     __metaclass__ = MongoFormMetaClass
 
     def __init__(self, data=None, files=None, auto_id='id_%s', prefix=None,
-        initial=None, error_class=forms.util.ErrorList, label_suffix=':',
+        initial=None, error_class=ErrorList, label_suffix=':',
         empty_permitted=False, instance=None):
         """ initialize the form"""
 

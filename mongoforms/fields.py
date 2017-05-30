@@ -1,11 +1,16 @@
 # -*- coding:utf-8 -*-
 
-from django import forms
+from django import forms, VERSION as django_version
 from django.conf import settings
 from django.forms.formsets import (formset_factory, BaseFormSet, TOTAL_FORM_COUNT, INITIAL_FORM_COUNT,
                                 MAX_NUM_FORM_COUNT, DEFAULT_MAX_NUM, DELETION_FIELD_NAME, ORDERING_FIELD_NAME)
 from django.forms.fields import IntegerField, BooleanField
-from django.forms.util import ErrorList
+
+if django_version < (1, 9):
+    from django.forms.util import ErrorList
+else:
+    from django.forms.utils import ErrorList
+
 from django.template import Context, Template
 from django.utils.encoding import smart_unicode
 from django.utils.translation import ugettext as _
@@ -245,7 +250,7 @@ class FormsetInput(forms.Widget):
                self.name, name_as_funcname, self.name, self.name, self.name)
         empty_form = '<div id="empty_%s" style="display: none;">' \
                      '<li><ul>%s</ul></li></div>' % \
-                      (self.name, self.form._get_empty_form(**self.form_attrs).as_ul())
+                      (self.name, self.form.empty_form.as_ul())
 
         return form_html + empty_form + management_javascript
 
@@ -292,7 +297,7 @@ class FormsetInput(forms.Widget):
         t = Template('{% load bootstrap3 %}'+
             '<div id="empty_%s" style="display: none;">'% self.name +
             '{% bootstrap_form form %}</div>' )
-        c = Context({'form': self.form._get_empty_form(**self.form_attrs)})
+        c = Context({'form': self.form.empty_form})
         empty_form = t.render(c)
         return button_plus_one + management_javascript + form_html + empty_form + button_plus_one
 
