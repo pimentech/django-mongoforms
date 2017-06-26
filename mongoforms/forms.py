@@ -74,7 +74,7 @@ class MongoForm(forms.BaseForm):
 
     def __init__(self, data=None, files=None, auto_id='id_%s', prefix=None,
         initial=None, error_class=ErrorList, label_suffix=':',
-        empty_permitted=False, instance=None):
+        empty_permitted=False, instance=None, **kwargs):
         """ initialize the form"""
 
         assert isinstance(instance, (types.NoneType, BaseDocument)), \
@@ -109,7 +109,7 @@ class MongoForm(forms.BaseForm):
 
         self._validate_unique = False
         super(MongoForm, self).__init__(data, files, auto_id, prefix,
-            object_data, error_class, label_suffix, empty_permitted)
+            object_data, error_class, label_suffix, empty_permitted, **kwargs)
 
         if prefix:
             for k, v in self.fields.items():
