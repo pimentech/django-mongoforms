@@ -27,6 +27,13 @@ class ReferenceWidget(forms.Select):
         except:
             pass
         return super(ReferenceWidget, self).render(name, value, attrs, choices)
+    
+    #def render(self, name, value, attrs=None, renderer=None):
+        #"""
+        #Returns this Widget rendered as HTML, as a Unicode string.
+        #"""
+        #context = self.get_context(name, value, attrs)
+        #return self._render(self.template_name, context, renderer)
 
 
 class ReferenceField(forms.ChoiceField):
@@ -260,7 +267,7 @@ class FormsetInput(forms.Widget):
 
         form_html = self.form.management_form.as_p()
         form_html += '<ul class="list-group formset %s">%s</ul>' % (self.name,
-            Template('{% load bootstrap3 %}{% for f in form.forms %}<li id="anchor_{{ name }}-{{ forloop.counter0 }}" class="list-group-item anchor">{% bootstrap_form f %}</li>{% endfor %}').render(Context({'form': self.form, 'name': self.attrs['id']})))
+            Template('{% load bootstrap3 %}{% for f in form.forms %}<li id="anchor_{{ name }}-{{ forloop.counter0 }}" class="list-group-item anchor">{% bootstrap_form f %}</li>{% endfor %}').render(Context({'form': self.form, 'name': attrs['id']})))
         if attrs.get('readonly'):
             return form_html
 
