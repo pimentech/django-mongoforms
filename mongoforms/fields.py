@@ -21,19 +21,21 @@ from mongoforms.utils import mongo_to_dict
 
 
 class ReferenceWidget(forms.Select):
-    def render(self, name, value, attrs=None, choices=()):
-        try:
-            value = value.id
-        except:
-            pass
-        return super(ReferenceWidget, self).render(name, value, attrs, choices)
-    
-    #def render(self, name, value, attrs=None, renderer=None):
-        #"""
-        #Returns this Widget rendered as HTML, as a Unicode string.
-        #"""
-        #context = self.get_context(name, value, attrs)
-        #return self._render(self.template_name, context, renderer)
+    if django_version < (1, 11):
+        def render(self, name, value, attrs=None, choices=()):
+            try:
+                value = value.id
+            except:
+                pass
+            return super(ReferenceWidget, self).render(name, value, attrs)
+
+    else:
+        def render(self, name, value, attrs=None, renderer=None):
+            """
+            Returns this Widget rendered as HTML, as a Unicode string.
+            """
+            context = self.get_context(name, value, attrs)
+            return self._render(self.template_name, context, renderer)
 
 
 class ReferenceField(forms.ChoiceField):
